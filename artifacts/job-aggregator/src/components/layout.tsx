@@ -10,11 +10,13 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile as useMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useTheme } from "@/context/theme";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -29,6 +31,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { signOut } = useClerk();
   const { user } = useUser();
   const isMobile = useMobile();
+  const { theme, toggleTheme } = useTheme();
 
   const handleSignOut = () => {
     signOut({ redirectUrl: import.meta.env.BASE_URL.replace(/\/$/, "") || "/" });
@@ -51,7 +54,7 @@ export function Layout({ children }: { children: ReactNode }) {
         })}
       </div>
       <div className="p-4 border-t border-border bg-background/50">
-        <div className="flex items-center gap-3 mb-4 px-2">
+        <div className="flex items-center gap-3 mb-3 px-2">
           <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center border border-border">
             <span className="font-mono text-xs">{user?.firstName?.charAt(0) || user?.primaryEmailAddress?.emailAddress?.charAt(0)?.toUpperCase()}</span>
           </div>
@@ -60,6 +63,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <p className="text-xs text-muted-foreground truncate">{user?.primaryEmailAddress?.emailAddress}</p>
           </div>
         </div>
+        <Button
+          variant="ghost"
+          className="w-full justify-start rounded-none font-mono text-xs uppercase text-muted-foreground hover:text-foreground mb-1"
+          onClick={toggleTheme}
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
+          {theme === "dark" ? "Light Mode" : "Dark Mode"}
+        </Button>
         <Button variant="ghost" className="w-full justify-start rounded-none font-mono text-xs uppercase text-muted-foreground hover:text-destructive" onClick={handleSignOut}>
           <LogOut className="w-4 h-4 mr-2" />
           Sign out

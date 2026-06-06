@@ -99,9 +99,9 @@ router.post(
       const mime = req.file.mimetype;
 
       if (mime === "application/pdf") {
-        const pdfParseModule = await import("pdf-parse");
-        const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
-        const result = await pdfParse(req.file.buffer);
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: new Uint8Array(req.file.buffer), verbosity: 0 });
+        const result = await parser.getText();
         cvText = result.text;
       } else {
         const mammoth = await import("mammoth");

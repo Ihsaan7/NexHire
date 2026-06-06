@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -7,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
+import { ThemeProvider } from "@/context/theme";
 
 // Import Layout
 import { Layout } from "@/components/layout";
@@ -183,10 +183,6 @@ function ProtectedRoute({ component: Component }: { component: any }) {
 function ClerkProviderWithRoutes() {
   const [location, setLocation] = useLocation();
 
-  useEffect(() => {
-    document.documentElement.classList.add("dark");
-  }, []);
-
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -223,9 +219,11 @@ function ClerkProviderWithRoutes() {
 
 export default function App() {
   return (
-    <WouterRouter base={basePath}>
-      <ClerkProviderWithRoutes />
-      <Toaster />
-    </WouterRouter>
+    <ThemeProvider>
+      <WouterRouter base={basePath}>
+        <ClerkProviderWithRoutes />
+        <Toaster />
+      </WouterRouter>
+    </ThemeProvider>
   );
 }
