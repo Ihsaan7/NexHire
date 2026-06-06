@@ -1,4 +1,4 @@
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
 import { ThemeProvider } from "@/context/theme";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 // Import Layout
 import { Layout } from "@/components/layout";
@@ -87,6 +88,12 @@ const clerkAppearance = {
     main: "px-8 py-6",
   },
 };
+
+function AuthTokenSetter() {
+  const { getToken } = useAuth();
+  setAuthTokenGetter(() => getToken());
+  return null;
+}
 
 function AnimatedBg() {
   return (
@@ -193,6 +200,7 @@ function ClerkProviderWithRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <AuthTokenSetter />
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AnimatePresence mode="wait">
