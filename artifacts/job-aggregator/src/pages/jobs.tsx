@@ -30,6 +30,21 @@ const SECTORS = [
   { id: "internships-fresh", label: "Internships / Fresh" },
 ];
 
+const CATEGORIES: Record<string, string[]> = {
+  "government": ["Federal (FPSC)", "Provincial", "Testing Services (NTS/PTS/OTS/ETEA)", "Departments"],
+  "private-tech": ["Software Development", "Data / AI / Machine Learning", "DevOps / Cloud", "Cybersecurity", "QA / Testing", "UI/UX Design", "Product Management"],
+  "private-banking": ["Banking Operations", "Accounting & Audit", "Investment & Treasury", "Fintech / Digital Banking"],
+  "private-engineering": ["Civil", "Mechanical", "Electrical", "Chemical", "Petroleum", "Energy"],
+  "private-healthcare": ["Medical", "Pharmacy", "Nursing", "Hospital Admin"],
+  "private-education": ["School Teaching", "University Faculty", "Training & Tutoring", "Education Admin"],
+  "private-sales-marketing": ["Digital Marketing", "Field Sales", "Business Development", "Content & Copywriting"],
+  "private-media-creative": ["Journalism", "Graphic Design", "Video & Animation", "Social Media Management"],
+  "private-operations-admin": ["HR & Recruitment", "Customer Service", "Logistics", "Office Administration"],
+  "ngo-nonprofit": ["Program Management", "Field Work", "Fundraising"],
+  "remote-international": ["Remote Full-time", "Remote Part-time", "Overseas"],
+  "internships-fresh": ["Internship", "Graduate Trainee", "Entry Level"],
+};
+
 const LOCATIONS = [
   "Karachi",
   "Lahore",
@@ -66,11 +81,14 @@ const EXPERIENCE_LEVELS = [
 export default function Jobs() {
   const [search, setSearch] = useState("");
   const [sector, setSector] = useState<string>("");
+  const [category, setCategory] = useState<string>("");
   const [location, setLocation] = useState<string>("");
   const [jobType, setJobType] = useState<string>("");
   const [experienceLevel, setExperienceLevel] = useState<string>("");
   const [postedWithin, setPostedWithin] = useState<string>("");
   const [minMatchScore, setMinMatchScore] = useState<number>(0);
+
+  const categoryOptions = sector && CATEGORIES[sector] ? CATEGORIES[sector] : [];
 
   const { data: profile } = useGetProfile();
   const hasCV = !!profile?.cvText;
@@ -78,6 +96,7 @@ export default function Jobs() {
   const { data, isLoading } = useListJobs({
     search: search || undefined,
     sector: sector || undefined,
+    category: category || undefined,
     location: location || undefined,
     jobType: jobType || undefined,
     experienceLevel: experienceLevel || undefined,
@@ -88,6 +107,7 @@ export default function Jobs() {
   const hasFilters =
     !!search ||
     !!sector ||
+    !!category ||
     !!location ||
     !!jobType ||
     !!experienceLevel ||
@@ -97,11 +117,17 @@ export default function Jobs() {
   const clearFilters = () => {
     setSearch("");
     setSector("");
+    setCategory("");
     setLocation("");
     setJobType("");
     setExperienceLevel("");
     setPostedWithin("");
     setMinMatchScore(0);
+  };
+
+  const handleSectorChange = (val: string) => {
+    setSector(val);
+    setCategory(""); // reset category when sector changes
   };
 
   return (
@@ -136,7 +162,7 @@ export default function Jobs() {
             <label className="font-mono text-xs uppercase text-muted-foreground">
               Sector
             </label>
-            <Select value={sector} onValueChange={setSector}>
+            <Select value={sector} onValueChange={handleSectorChange}>
               <SelectTrigger
                 className="rounded-none font-mono text-xs"
                 data-testid="select-sector"
@@ -153,6 +179,31 @@ export default function Jobs() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Category — shows only when a sector is selected */}
+          {categoryOptions.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="font-mono text-xs uppercase text-muted-foreground">
+                Category
+              </label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger
+                  className="rounded-none font-mono text-xs"
+                  data-testid="select-category"
+                >
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent className="rounded-none">
+                  <SelectItem value=" ">All Categories</SelectItem>
+                  {categoryOptions.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Location */}
           <div className="space-y-1.5">

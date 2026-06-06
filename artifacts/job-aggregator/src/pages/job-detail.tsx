@@ -3,7 +3,8 @@ import { useParams, Link } from "wouter";
 import { 
   useGetJob, getGetJobQueryKey, 
   useAnalyzeJobMatch, getAnalyzeJobMatchQueryKey,
-  useSaveJob, useListSavedJobs, useDeleteSavedJob
+  useSaveJob, useListSavedJobs, useDeleteSavedJob,
+  getListSavedJobsQueryKey
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,14 +44,14 @@ export default function JobDetail() {
       deleteSavedJobMutation.mutate({ id: savedJobRecord.id }, {
         onSuccess: () => {
           toast({ title: "Removed from tracker", description: "Job removed successfully." });
-          queryClient.invalidateQueries({ queryKey: ['/api/jobs/saved'] as any });
+          queryClient.invalidateQueries({ queryKey: getListSavedJobsQueryKey() });
         }
       });
     } else {
       saveJobMutation.mutate({ data: { jobId: id!, status: 'saved' } }, {
         onSuccess: () => {
           toast({ title: "Saved to tracker", description: "Job added to your pipeline." });
-          queryClient.invalidateQueries({ queryKey: ['/api/jobs/saved'] as any });
+          queryClient.invalidateQueries({ queryKey: getListSavedJobsQueryKey() });
         }
       });
     }

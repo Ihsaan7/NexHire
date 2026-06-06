@@ -31,6 +31,16 @@ function formatJob(job: any) {
   };
 }
 
+// Safely extract the jobId string regardless of whether jobId is populated or not
+function resolveJobId(jobIdField: any): string {
+  if (!jobIdField) return "";
+  // Populated doc has ._id; raw ObjectId has .toString()
+  if (typeof jobIdField === "object" && jobIdField._id) {
+    return jobIdField._id.toString();
+  }
+  return jobIdField.toString();
+}
+
 // GET /api/saved-jobs
 router.get("/saved-jobs", requireAuth, async (req, res) => {
   try {
@@ -45,8 +55,8 @@ router.get("/saved-jobs", requireAuth, async (req, res) => {
       savedJobs.map((s) => ({
         id: s._id.toString(),
         userId: s.userId,
-        jobId: s.jobId.toString(),
-        job: s.jobId && typeof s.jobId === "object" ? formatJob(s.jobId) : null,
+        jobId: resolveJobId(s.jobId),
+        job: s.jobId && typeof s.jobId === "object" && (s.jobId as any)._id ? formatJob(s.jobId) : null,
         status: s.status,
         notes: s.notes ?? null,
         appliedAt: s.appliedAt?.toISOString() ?? null,
@@ -131,9 +141,9 @@ router.patch("/saved-jobs/:id", requireAuth, async (req, res) => {
     res.json({
       id: saved._id.toString(),
       userId: saved.userId,
-      jobId: saved.jobId.toString(),
+      jobId: resolveJobId(saved.jobId),
       job:
-        saved.jobId && typeof saved.jobId === "object"
+        saved.jobId && typeof saved.jobId === "object" && (saved.jobId as any)._id
           ? formatJob(saved.jobId)
           : null,
       status: saved.status,
