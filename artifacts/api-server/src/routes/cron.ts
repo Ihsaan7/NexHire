@@ -2,37 +2,59 @@ import { Router } from "express";
 import { connectMongo } from "../lib/mongodb";
 import { Job } from "../models/Job";
 import { generateEmbedding } from "../lib/gemini";
-import { mapAdzunaCategory } from "../lib/taxonomy";
 import { logger } from "../lib/logger";
 
 const router = Router();
 
-interface AdzunaJob {
-  id: string;
+interface RemotiveJob {
+  id: number;
+  url: string;
   title: string;
-  company?: { display_name: string };
-  location?: { display_name: string };
+  company_name: string;
+  category: string;
+  tags: string[];
+  job_type: string;
+  publication_date: string;
+  candidate_required_location: string;
+  salary: string;
   description: string;
-  category?: { tag: string; label: string };
-  contract_type?: string;
-  salary_min?: number;
-  salary_max?: number;
-  created: string;
-  redirect_url: string;
 }
 
-function buildApplicationSteps(job: AdzunaJob): string[] {
-  return [
-    `Visit the job posting at: ${job.redirect_url}`,
-    "Read the full job description and requirements carefully",
-    "Prepare your CV tailored to the role's requirements",
-    "Write a targeted cover letter highlighting your relevant experience",
-    "Submit your application through the employer's portal or via the link above",
-    "Note the application deadline and follow up if you don't hear back within 2 weeks",
-  ];
+interface ArbeitnowJob {
+  slug: string;
+  company_name: string;
+  title: string;
+  description: string;
+  remote: boolean;
+  url: string;
+  tags: string[];
+  job_types: string[];
+  location: string;
+  created_at: number;
 }
 
-// POST /api/cron/sync-adzuna
+function mapRemotiveCategory(category: string): { sector: string; category: string } {
+  const c = category.toLowerCase();
+  if (c.includes("software") || c.includes("developer") || c.includes("engineer")) return { sector: "Technology", category: "Software Development" };
+  if (c.includes("devops") || c.includes("sysadmin") || c.includes("infrastructure") || c.includes("cloud")) return { sector: "Technology", category: "DevOps & Cloud" };
+  if (c.includes("data") || c.includes("analytics") || c.includes("machine learning") || c.includes("ai") || c.includes("artificial")) return { sector: "Technology", category: "Data & AI" };
+  if (c.includes("product")) return { sector: "Technology", category: "Product Management" };
+  if (c.includes("design") || c.includes("ux") || c.includes("ui")) return { sector: "Technology", category: "Design & UX" };
+  if (c.includes("marketing") || c.includes("growth") || c.includes("seo")) return { sector: "Marketing", category: "Marketing" };
+  if (c.includes("sales") || c.includes("business")) return { sector: "Business", category: "Sales & Business" };
+  if (c.includes("finance") || c.includes("legal") || c.includes("account")) return { sector: "Finance", category: "Finance & Legal" };
+  if (c.includes("hr") || c.includes("recruit") || c.includes("people")) return { sector: "Human Resources", category: "HR & Recruitment" };
+  if (c.includes("customer") || c.includes("support") || c.includes("service")) return { sector: "Services", category: "Customer Support" };
+  if (c.includes("writ") || c.includes("content") || c.includes("editor")) return { sector: "Media", category: "Writing & Content" };
+  if (c.includes("project") || c.includes("manager") || c.includes("management")) return { sector: "Business", category: "Project Management" };
+  return { sector: "Technology", category: "Technology" };
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// POST /api/cron/sync-jobs
 router.post("/cron/sync-adzuna", async (req, res) => {
   const authHeader = req.headers.authorization;
   const expectedSecret = process.env.CRON_SECRET;
@@ -42,131 +64,177 @@ router.post("/cron/sync-adzuna", async (req, res) => {
     return;
   }
 
-  const appId = process.env.ADZUNA_APP_ID;
-  const appKey = process.env.ADZUNA_APP_KEY;
-
-  if (!appId || !appKey) {
-    res.status(500).json({ error: "Adzuna credentials not configured" });
-    return;
-  }
-
   try {
     await connectMongo();
 
     let inserted = 0;
     let updated = 0;
     let errors = 0;
-    const maxPages = 10;
 
-    for (let page = 1; page <= maxPages; page++) {
-      const url = `https://api.adzuna.com/v1/api/jobs/pk/search/${page}?app_id=${appId}&app_key=${appKey}&results_per_page=50&what=&where=pakistan&content-type=application/json`;
+    // ── Remotive: remote tech jobs ─────────────────────────────────────────
+    const remotiveCategories = [
+      "software-dev",
+      "engineering",
+      "devops-sysadmin",
+      "data",
+      "product-management",
+      "design",
+    ];
 
-      let data: { results: AdzunaJob[]; count: number };
+    for (const cat of remotiveCategories) {
       try {
+        const url = `https://remotive.com/api/remote-jobs?category=${cat}&limit=50`;
         const resp = await fetch(url);
         if (!resp.ok) {
-          logger.warn({ page, status: resp.status }, "Adzuna page fetch failed");
-          break;
+          logger.warn({ cat, status: resp.status }, "Remotive fetch failed");
+          continue;
         }
-        data = await resp.json() as { results: AdzunaJob[]; count: number };
-      } catch (fetchErr) {
-        logger.error({ fetchErr, page }, "Adzuna fetch error");
-        errors++;
-        break;
-      }
+        const data = await resp.json() as { jobs: RemotiveJob[] };
+        const jobs = data.jobs ?? [];
 
-      if (!data.results?.length) break;
-
-      for (const item of data.results) {
-        try {
-          const { sector, category } = mapAdzunaCategory(
-            item.category?.tag ?? "",
-          );
-
-          const postedDate = new Date(item.created);
-
-          // Only ingest 2026+ jobs
-          if (postedDate < new Date("2026-01-01")) continue;
-
-          const textForEmbedding = `${item.title} ${item.description}`.slice(
-            0,
-            8000,
-          );
-
-          let embedding: number[] | undefined;
+        for (const item of jobs) {
           try {
-            embedding = await generateEmbedding(textForEmbedding);
-          } catch (embErr) {
-            logger.warn({ embErr, jobId: item.id }, "Embedding generation failed");
-          }
+            const { sector, category } = mapRemotiveCategory(item.category);
+            const description = stripHtml(item.description);
+            const postedDate = new Date(item.publication_date);
 
-          const salaryRange =
-            item.salary_min && item.salary_max
-              ? `PKR ${item.salary_min.toLocaleString()} - ${item.salary_max.toLocaleString()}`
-              : undefined;
+            let embedding: number[] | undefined;
+            try {
+              embedding = await generateEmbedding(
+                `${item.title} ${item.company_name} ${description}`.slice(0, 8000),
+              );
+            } catch (embErr) {
+              logger.warn({ embErr, jobId: item.id }, "Embedding failed");
+            }
 
-          const result = await Job.findOneAndUpdate(
-            { source: "adzuna", sourceJobId: item.id },
-            {
-              $set: {
-                source: "adzuna",
-                sourceJobId: item.id,
-                title: item.title,
-                company: item.company?.display_name,
-                location: item.location?.display_name,
-                sector,
-                category,
-                description: item.description,
-                jobType: item.contract_type,
-                salaryRange,
-                postedDate,
-                applyUrl: item.redirect_url,
-                applicationSteps: buildApplicationSteps(item),
-                ...(embedding ? { embedding } : {}),
+            const result = await Job.findOneAndUpdate(
+              { source: "remotive", sourceJobId: String(item.id) },
+              {
+                $set: {
+                  source: "remotive",
+                  sourceJobId: String(item.id),
+                  title: item.title,
+                  company: item.company_name,
+                  location: item.candidate_required_location || "Remote",
+                  sector,
+                  category,
+                  description,
+                  jobType: item.job_type === "full_time" ? "full-time" : item.job_type,
+                  salaryRange: item.salary || undefined,
+                  postedDate,
+                  applyUrl: item.url,
+                  applicationSteps: [
+                    `Visit the job posting at: ${item.url}`,
+                    "Read the full job description and requirements carefully",
+                    "Prepare your CV tailored to the role's requirements",
+                    "Submit your application through the link above",
+                  ],
+                  ...(embedding ? { embedding } : {}),
+                },
               },
-            },
-            { upsert: true, new: true, setDefaultsOnInsert: true },
-          );
+              { upsert: true, new: true, setDefaultsOnInsert: true },
+            );
 
-          if (result) {
-            const wasNew = result.createdAt.getTime() === result.updatedAt.getTime();
-            if (wasNew) inserted++;
-            else updated++;
+            if (result) {
+              const isNew = Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000;
+              if (isNew) inserted++;
+              else updated++;
+            }
+          } catch (jobErr) {
+            logger.error({ jobErr, jobId: item.id }, "Job upsert error");
+            errors++;
           }
-        } catch (jobErr) {
-          logger.error({ jobErr, jobId: item.id }, "Job upsert error");
-          errors++;
         }
-      }
 
-      // Respect Gemini free tier rate limits
-      await new Promise((r) => setTimeout(r, 500));
+        // Respect Gemini rate limits between category batches
+        await new Promise((r) => setTimeout(r, 1000));
+      } catch (catErr) {
+        logger.error({ catErr, cat }, "Remotive category error");
+        errors++;
+      }
     }
 
-    // Delete expired jobs (deadline passed or older than 60 days)
+    // ── Arbeitnow: additional remote tech jobs ─────────────────────────────
+    for (let page = 1; page <= 3; page++) {
+      try {
+        const url = `https://www.arbeitnow.com/api/job-board-api?page=${page}`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          logger.warn({ page, status: resp.status }, "Arbeitnow fetch failed");
+          break;
+        }
+        const data = await resp.json() as { data: ArbeitnowJob[] };
+        const jobs = (data.data ?? []).filter((j) => j.remote);
+
+        for (const item of jobs) {
+          try {
+            const description = stripHtml(item.description);
+            const postedDate = new Date(item.created_at * 1000);
+
+            let embedding: number[] | undefined;
+            try {
+              embedding = await generateEmbedding(
+                `${item.title} ${item.company_name} ${description}`.slice(0, 8000),
+              );
+            } catch (embErr) {
+              logger.warn({ embErr, jobId: item.slug }, "Embedding failed");
+            }
+
+            const result = await Job.findOneAndUpdate(
+              { source: "arbeitnow", sourceJobId: item.slug },
+              {
+                $set: {
+                  source: "arbeitnow",
+                  sourceJobId: item.slug,
+                  title: item.title,
+                  company: item.company_name,
+                  location: item.location || "Remote",
+                  sector: "Technology",
+                  category: item.tags?.[0] ?? "General",
+                  description,
+                  jobType: item.job_types?.[0] ?? "full-time",
+                  postedDate,
+                  applyUrl: item.url,
+                  applicationSteps: [
+                    `Visit the job posting at: ${item.url}`,
+                    "Read the full job description and requirements carefully",
+                    "Prepare your CV tailored to the role's requirements",
+                    "Submit your application through the link above",
+                  ],
+                  ...(embedding ? { embedding } : {}),
+                },
+              },
+              { upsert: true, new: true, setDefaultsOnInsert: true },
+            );
+
+            if (result) {
+              const isNew = Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000;
+              if (isNew) inserted++;
+              else updated++;
+            }
+          } catch (jobErr) {
+            logger.error({ jobErr, jobId: item.slug }, "Job upsert error");
+            errors++;
+          }
+        }
+
+        await new Promise((r) => setTimeout(r, 1000));
+      } catch (pageErr) {
+        logger.error({ pageErr, page }, "Arbeitnow page error");
+        errors++;
+      }
+    }
+
+    // Delete jobs older than 60 days
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-
-    const deleteResult = await Job.deleteMany({
-      $or: [
-        { deadline: { $lt: new Date() } },
-        { createdAt: { $lt: sixtyDaysAgo } },
-      ],
-    });
-
+    const deleteResult = await Job.deleteMany({ createdAt: { $lt: sixtyDaysAgo } });
     const deleted = deleteResult.deletedCount ?? 0;
 
-    logger.info({ inserted, updated, deleted, errors }, "Adzuna sync complete");
-
-    res.json({
-      inserted,
-      updated,
-      deleted,
-      errors,
-      message: `Sync complete: ${inserted} new, ${updated} updated, ${deleted} deleted`,
-    });
+    logger.info({ inserted, updated, deleted, errors }, "Job sync complete");
+    res.json({ inserted, updated, deleted, errors, message: `Sync complete: ${inserted} new, ${updated} updated, ${deleted} deleted` });
   } catch (err) {
-    logger.error({ err }, "syncAdzuna error");
+    logger.error({ err }, "syncJobs error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

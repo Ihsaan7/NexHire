@@ -1,2 +1,3 @@
-- [PK Jobs stack](pk-jobs-stack.md) — MongoDB+Mongoose (not Drizzle/Postgres); Gemini text-embedding-004 + gemini-2.0-flash; Clerk cookie auth (no token headers on web)
-- [PK Jobs first-run setup](pk-jobs-first-run.md) — DB is empty until cron sync runs; Vector Search index must be created in Atlas before AI matching works
+- [Gemini API key constraints](gemini-api-key.md) — text-embedding-004 unavailable; use gemini-embedding-001 (3072 dims); gemini-2.5-flash-lite has quota when 2.0-flash exhausted
+- [Job data sources](job-sources.md) — Adzuna does NOT support Pakistan (pk); switched to Remotive + Arbeitnow (free, no auth)
+- [Atlas vector search index](atlas-vector-index.md) — job_embedding_index created programmatically; 3072 dims, cosine; embeds from gemini-embedding-001

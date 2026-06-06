@@ -56,15 +56,17 @@ router.get("/jobs", requireAuth, async (req, res) => {
     // Build $and array — all constraints compose safely
     const andClauses: any[] = [];
 
-    // Only show 2026+ or undated jobs
+    // Exclude jobs older than 60 days
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
     andClauses.push({
       $or: [
-        { postedDate: { $gte: new Date("2026-01-01") } },
+        { postedDate: { $gte: sixtyDaysAgo } },
         { postedDate: { $exists: false } },
       ],
     });
 
-    // Exclude expired jobs
+    // Exclude expired jobs (only if deadline is set)
     andClauses.push({
       $or: [
         { deadline: { $exists: false } },
