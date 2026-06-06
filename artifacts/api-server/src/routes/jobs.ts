@@ -53,49 +53,72 @@ router.get("/jobs", requireAuth, async (req, res) => {
       limit = "20",
     } = req.query as Record<string, string>;
 
-    const filter: Record<string, any> = {
-      // Only show 2026+ jobs
+    // Build $and array — all constraints compose safely
+    const andClauses: any[] = [];
+
+    // Only show 2026+ or undated jobs
+    andClauses.push({
       $or: [
         { postedDate: { $gte: new Date("2026-01-01") } },
         { postedDate: { $exists: false } },
       ],
-      // Exclude expired
-      $and: [
-        {
-          $or: [
-            { deadline: { $exists: false } },
-            { deadline: { $gte: new Date() } },
-          ],
-        },
+    });
+
+    // Exclude expired jobs
+    andClauses.push({
+      $or: [
+        { deadline: { $exists: false } },
+        { deadline: { $gte: new Date() } },
       ],
-    };
+    });
+
+    const filter: Record<string, any> = { $and: andClauses };
 
     if (sector) filter.sector = sector;
     if (category) filter.category = category;
-    if (location) filter.location = new RegExp(location, "i");
+    if (location) filter.location = new RegExp(location.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     if (experienceLevel) filter.experienceLevel = experienceLevel;
     if (jobType) filter.jobType = jobType;
 
     if (postedWithin) {
-      const now = new Date();
       const cutoff = new Date();
-      if (postedWithin === "today") cutoff.setDate(now.getDate() - 1);
-      else if (postedWithin === "week") cutoff.setDate(now.getDate() - 7);
-      else if (postedWithin === "month") cutoff.setDate(now.getDate() - 30);
-      filter.postedDate = { $gte: cutoff };
+      if (postedWithin === "today") cutoff.setDate(cutoff.getDate() - 1);
+      else if (postedWithin === "week") cutoff.setDate(cutoff.getDate() - 7);
+      else if (postedWithin === "month") cutoff.setDate(cutoff.getDate() - 30);
+      andClauses.push({ postedDate: { $gte: cutoff } });
     }
 
     if (deadlineWithin) {
-      const now = new Date();
       const cutoff = new Date();
-      if (deadlineWithin === "3days") cutoff.setDate(now.getDate() + 3);
-      else if (deadlineWithin === "week") cutoff.setDate(now.getDate() + 7);
-      else if (deadlineWithin === "month") cutoff.setDate(now.getDate() + 30);
-      filter.deadline = { ...(filter.deadline ?? {}), $lte: cutoff };
+      if (deadlineWithin === "3days") cutoff.setDate(cutoff.getDate() + 3);
+      else if (deadlineWithin === "week") cutoff.setDate(cutoff.getDate() + 7);
+      else if (deadlineWithin === "month") cutoff.setDate(cutoff.getDate() + 30);
+      andClauses.push({ deadline: { $lte: cutoff } });
     }
 
     if (search) {
-      filter.$text = { $search: search };
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      andClauses.push({
+        $or: [
+          { title: re },
+          { company: re },
+          { description: re },
+          { category: re },
+        ],
+      });
+    }
+
+    // minMatchScore: filter by cached match analysis scores for this user
+    if (minMatchScore) {
+      const minScore = parseInt(minMatchScore);
+      if (!isNaN(minScore) && minScore > 0) {
+        const userId = (req as any).userId as string;
+        const highScoreJobIds = await MatchAnalysis.find({
+          userId,
+          matchScore: { $gte: minScore },
+        }).distinct("jobId");
+        andClauses.push({ _id: { $in: highScoreJobIds } });
+      }
     }
 
     const pageNum = Math.max(1, parseInt(page));

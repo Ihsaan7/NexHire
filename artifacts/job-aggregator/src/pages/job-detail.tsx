@@ -127,18 +127,41 @@ export default function JobDetail() {
             )}
           </div>
 
-          <div className="prose prose-invert prose-p:font-sans prose-headings:font-serif max-w-none">
+          <div className="space-y-8">
             {job.description ? (
-              <div dangerouslySetInnerHTML={{__html: job.description}} />
+              <div>
+                <h3 className="text-xl font-serif mb-4">About the Role</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap font-sans">
+                  {job.description}
+                </p>
+              </div>
             ) : (
-              <p>No description provided.</p>
+              <p className="text-muted-foreground font-mono text-sm">No description provided.</p>
             )}
 
             {job.requirements && (
-              <>
-                <h3 className="text-2xl font-serif mt-8 mb-4">Requirements</h3>
-                <div dangerouslySetInnerHTML={{__html: job.requirements}} />
-              </>
+              <div>
+                <h3 className="text-xl font-serif mb-4">Requirements</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap font-sans">
+                  {job.requirements}
+                </p>
+              </div>
+            )}
+
+            {job.applicationSteps && job.applicationSteps.length > 0 && (
+              <div>
+                <h3 className="text-xl font-serif mb-4">How to Apply</h3>
+                <ol className="space-y-3">
+                  {job.applicationSteps.map((step, i) => (
+                    <li key={i} className="flex gap-4 text-sm font-sans">
+                      <span className="flex-shrink-0 w-6 h-6 border border-primary text-primary font-mono text-xs flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <span className="text-muted-foreground pt-0.5">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             )}
           </div>
         </div>
