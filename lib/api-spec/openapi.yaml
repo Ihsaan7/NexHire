@@ -17,6 +17,8 @@ tags:
     description: Saved and tracked jobs
   - name: cron
     description: Data ingestion
+  - name: gigs
+    description: Side-income gig listings
 
 paths:
   /healthz:
@@ -336,6 +338,71 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /cron/sync-gigs:
+    post:
+      operationId: syncGigs
+      tags: [cron]
+      summary: Trigger gig sync from RemoteOK, Jobicy, Remotive, WWR (protected by CRON_SECRET)
+      responses:
+        "202":
+          description: Sync started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /gigs:
+    get:
+      operationId: listGigs
+      tags: [gigs]
+      summary: List side-income gigs with filters and value scoring
+      parameters:
+        - name: taskType
+          in: query
+          schema:
+            type: string
+        - name: payModel
+          in: query
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+        - name: minLegitScore
+          in: query
+          schema:
+            type: string
+        - name: showLowTrust
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Gig list with value scoring
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GigListResponse"
+
 components:
   schemas:
     CvFileInput:
@@ -629,6 +696,86 @@ components:
           type: string
         appliedAt:
           type: string
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    Gig:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        title:
+          type: string
+        company:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        applyUrl:
+          type: ["string", "null"]
+        postedDate:
+          type: ["string", "null"]
+        taskType:
+          type: ["string", "null"]
+        payModel:
+          type: ["string", "null"]
+        estPayUSD:
+          type: ["number", "null"]
+        difficulty:
+          type: ["string", "null"]
+        legitScore:
+          type: ["number", "null"]
+        redFlags:
+          type: array
+          items:
+            type: string
+        enrichedAt:
+          type: ["string", "null"]
+        estMonthlyPKR:
+          type: ["number", "null"]
+        valueScore:
+          type: ["number", "null"]
+        valueIndicator:
+          type: ["string", "null"]
+        isRecurring:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - source
+        - title
+        - isRecurring
+        - createdAt
+
+    GigListResponse:
+      type: object
+      properties:
+        gigs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Gig"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        usdToPkr:
+          type: number
+      required:
+        - gigs
+        - total
+        - page
+        - limit
+        - usdToPkr
 
     SyncResult:
       type: object

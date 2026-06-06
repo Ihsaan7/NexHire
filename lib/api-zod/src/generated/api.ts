@@ -333,3 +333,46 @@ export const SyncAdzunaResponse = zod.object({
 })
 
 
+/**
+ * @summary List side-income gigs with filters and value scoring
+ */
+export const ListGigsQueryParams = zod.object({
+  "taskType": zod.coerce.string().optional(),
+  "payModel": zod.coerce.string().optional(),
+  "difficulty": zod.coerce.string().optional(),
+  "minLegitScore": zod.coerce.string().optional(),
+  "showLowTrust": zod.coerce.string().optional(),
+  "sort": zod.coerce.string().optional(),
+  "page": zod.coerce.string().optional(),
+  "limit": zod.coerce.string().optional()
+})
+
+export const ListGigsResponse = zod.object({
+  "gigs": zod.array(zod.object({
+  "id": zod.string(),
+  "source": zod.string(),
+  "title": zod.string(),
+  "company": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "applyUrl": zod.string().nullish(),
+  "postedDate": zod.string().nullish(),
+  "taskType": zod.string().nullish(),
+  "payModel": zod.string().nullish(),
+  "estPayUSD": zod.number().nullish(),
+  "difficulty": zod.string().nullish(),
+  "legitScore": zod.number().nullish(),
+  "redFlags": zod.array(zod.string()).optional(),
+  "enrichedAt": zod.string().nullish(),
+  "estMonthlyPKR": zod.number().nullish(),
+  "valueScore": zod.number().nullish(),
+  "valueIndicator": zod.string().nullish(),
+  "isRecurring": zod.boolean(),
+  "createdAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number(),
+  "usdToPkr": zod.number()
+})
+
+

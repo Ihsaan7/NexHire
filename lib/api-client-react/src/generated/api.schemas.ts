@@ -180,6 +180,53 @@ export interface SavedJobUpdate {
   appliedAt?: string;
 }
 
+export interface MessageResponse {
+  message: string;
+}
+
+export interface Gig {
+  id: string;
+  source: string;
+  title: string;
+  /** @nullable */
+  company?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  applyUrl?: string | null;
+  /** @nullable */
+  postedDate?: string | null;
+  /** @nullable */
+  taskType?: string | null;
+  /** @nullable */
+  payModel?: string | null;
+  /** @nullable */
+  estPayUSD?: number | null;
+  /** @nullable */
+  difficulty?: string | null;
+  /** @nullable */
+  legitScore?: number | null;
+  redFlags?: string[];
+  /** @nullable */
+  enrichedAt?: string | null;
+  /** @nullable */
+  estMonthlyPKR?: number | null;
+  /** @nullable */
+  valueScore?: number | null;
+  /** @nullable */
+  valueIndicator?: string | null;
+  isRecurring: boolean;
+  createdAt: string;
+}
+
+export interface GigListResponse {
+  gigs: Gig[];
+  total: number;
+  page: number;
+  limit: number;
+  usdToPkr: number;
+}
+
 export interface SyncResult {
   inserted: number;
   updated: number;
@@ -210,5 +257,16 @@ limit?: number;
 
 export type GetMatchedJobsParams = {
 limit?: number;
+};
+
+export type ListGigsParams = {
+taskType?: string;
+payModel?: string;
+difficulty?: string;
+minLegitScore?: string;
+showLowTrust?: string;
+sort?: string;
+page?: string;
+limit?: string;
 };
 

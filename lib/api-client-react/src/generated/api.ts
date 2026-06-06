@@ -25,13 +25,16 @@ import type {
   CvUploadResult,
   ErrorResponse,
   GetMatchedJobsParams,
+  GigListResponse,
   HealthStatus,
   Job,
   JobListResponse,
   JobStats,
+  ListGigsParams,
   ListJobsParams,
   MatchAnalysis,
   MatchedJobsResponse,
+  MessageResponse,
   Profile,
   ProfileUpdate,
   SavedJob,
@@ -1185,4 +1188,158 @@ export const useSyncAdzuna = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getSyncAdzunaMutationOptions(options));
     }
+
+export const getSyncGigsUrl = () => {
+
+
+
+
+  return `/api/cron/sync-gigs`
+}
+
+/**
+ * @summary Trigger gig sync from RemoteOK, Jobicy, Remotive, WWR (protected by CRON_SECRET)
+ */
+export const syncGigs = async ( options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getSyncGigsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSyncGigsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGigs>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncGigs>>, TError,void, TContext> => {
+
+const mutationKey = ['syncGigs'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncGigs>>, void> = () => {
+
+
+          return  syncGigs(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncGigsMutationResult = NonNullable<Awaited<ReturnType<typeof syncGigs>>>
+
+    export type SyncGigsMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Trigger gig sync from RemoteOK, Jobicy, Remotive, WWR (protected by CRON_SECRET)
+ */
+export const useSyncGigs = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGigs>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncGigs>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncGigsMutationOptions(options));
+    }
+
+export const getListGigsUrl = (params?: ListGigsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/gigs?${stringifiedParams}` : `/api/gigs`
+}
+
+/**
+ * @summary List side-income gigs with filters and value scoring
+ */
+export const listGigs = async (params?: ListGigsParams, options?: RequestInit): Promise<GigListResponse> => {
+
+  return customFetch<GigListResponse>(getListGigsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGigsQueryKey = (params?: ListGigsParams,) => {
+    return [
+    `/api/gigs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListGigsQueryOptions = <TData = Awaited<ReturnType<typeof listGigs>>, TError = ErrorType<unknown>>(params?: ListGigsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGigs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGigsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGigs>>> = ({ signal }) => listGigs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGigs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGigsQueryResult = NonNullable<Awaited<ReturnType<typeof listGigs>>>
+export type ListGigsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List side-income gigs with filters and value scoring
+ */
+
+export function useListGigs<TData = Awaited<ReturnType<typeof listGigs>>, TError = ErrorType<unknown>>(
+ params?: ListGigsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGigs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGigsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 

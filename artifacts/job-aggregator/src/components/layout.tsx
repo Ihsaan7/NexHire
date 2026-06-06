@@ -12,6 +12,7 @@ import {
   Menu,
   Sun,
   Moon,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile as useMobile } from "@/hooks/use-mobile";
@@ -21,6 +22,7 @@ import { useTheme } from "@/context/theme";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/gigs", label: "Side Income", icon: DollarSign },
   { href: "/tracker", label: "Tracker", icon: Trello },
   { href: "/cv", label: "CV Analysis", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings },

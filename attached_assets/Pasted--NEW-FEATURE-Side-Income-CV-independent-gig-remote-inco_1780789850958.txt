@@ -1,0 +1,59 @@
+## NEW FEATURE: "Side Income" — CV-independent gig & remote-income stream
+
+Add a separate section/tab called "Side Income", completely independent of my CV and skill matching. It surfaces two merged types of work:
+(a) Low-barrier task/gig work — invoicing, data annotation, basic writing, virtual assistant, data entry, transcription, content moderation, simple admin. No high specialization required.
+(b) Legit, hard-to-find remote gigs that pay in USD — where even $200–300/month is strong income in Pakistan.
+
+These two are MERGED into one unified, filterable list. Do NOT filter this section by my backend/IT profile.
+
+--- DATA SOURCES (all free, legal, fetchable — do NOT scrape Upwork/Fiverr/Telegram) ---
+- RemoteOK public JSON API (https://remoteok.com/api)
+- Remotive API (https://remotive.com/api/remote-jobs)
+- We Work Remotely category RSS feeds
+- Jobicy free remote-jobs API
+- Adzuna API with remote + entry-level filters (already integrated)
+
+Add a new cron at /api/cron/sync-gigs (daily) that pulls from these, normalizes them into the same job schema, and tags source = 'gig'. Auto-expire after 45 days.
+
+--- AI ENRICHMENT (Gemini, run on each new gig at ingestion, cache result) ---
+For every gig, call Gemini to return ONLY valid JSON:
+{
+  "taskType": "<e.g. data-entry | annotation | writing | VA | transcription | admin | other>",
+  "payModel": "<per-task | hourly | monthly | project>",
+  "estPayUSD": "<best estimate or range, else null>",
+  "difficulty": "<easy | medium>",
+  "legitScore": <0-100>,
+  "redFlags": [<short reasons, empty if clean>]
+}
+Legitimacy scoring: penalize upfront-payment requests, vague descriptions, unrealistic pay, no company info, personal-email-only contact.
+
+--- DISPLAY RULES ---
+- Hide gigs with legitScore < 60 by default (add a toggle "show low-trust listings" for me to override).
+- Show a legit-score badge on each gig card (green 80+, amber 60–79).
+- Within the section, allow filters: taskType, payModel, difficulty, est USD pay range.
+- Each gig card shows: title, source, payModel + estPayUSD, difficulty, legit badge, "Open" button to the original apply URL. Manual apply only — no auto-apply.
+
+Keep this fully separate from the main CV-matched job tab so it never clutters my real job search.
+
+--- SORT: "Best Value for Pakistan" (default sort for this section) ---
+Add a sort option "Best Value 🇵🇰" that ranks gigs by estimated earnings in PKR weighed against effort.
+
+EXCHANGE RATE:
+- Add env var USD_TO_PKR with a sensible default (e.g. 278) that I can update manually.
+- Optional: refresh daily from the free keyless API https://open.er-api.com/v6/latest/USD (read rates.PKR). If fetch fails, fall back to the env constant. Cache 24h.
+
+NORMALIZE PAY TO ESTIMATED MONTHLY PKR:
+- monthly  → estPayUSD * USD_TO_PKR
+- hourly   → estPayUSD * ASSUMED_HOURS_PER_MONTH * USD_TO_PKR (add env ASSUMED_HOURS_PER_MONTH, default 80)
+- per-task / project → estPayUSD * USD_TO_PKR, tagged as one-off (not recurring)
+- if estPayUSD is null → estMonthlyPKR = null (rank these last)
+
+VALUE SCORE:
+- effortFactor: easy = 1.0, medium = 1.6
+- valueScore = estMonthlyPKR / effortFactor (higher = better)
+- null-pay gigs sort to bottom; tie-breaker: higher legitScore wins
+
+DISPLAY FOR THIS SORT:
+- Show estimated monthly PKR on each card (e.g. "~Rs 83,000/mo est.") and a value indicator (🔥 high / 👍 good / — low).
+- Section disclaimer: "Pay estimates are AI-generated approximations, not guarantees."
+- Keep other sorts available in a dropdown: Newest, Highest pay, Most legit.

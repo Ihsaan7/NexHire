@@ -1,3 +1,4 @@
 - [Gemini API key constraints](gemini-api-key.md) — text-embedding-004 unavailable; use gemini-embedding-001 (3072 dims); gemini-2.5-flash-lite has quota when 2.0-flash exhausted
 - [Job data sources](job-sources.md) — Adzuna does NOT support Pakistan (pk); switched to Remotive + Arbeitnow (free, no auth)
 - [Atlas vector search index](atlas-vector-index.md) — job_embedding_index created programmatically; 3072 dims, cosine; embeds from gemini-embedding-001
+- [Gigs feature architecture](gigs-feature.md) — Side Income gigs are a separate Gig model/collection, never mixed with Jobs; value scoring computed at query time not stored.

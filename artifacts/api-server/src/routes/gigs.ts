@@ -1,0 +1,136 @@
+import { Router } from "express";
+import { requireAuth } from "./auth";
+import { connectMongo } from "../lib/mongodb";
+import { Gig } from "../models/Gig";
+import { getUsdToPkr, calcValueScore } from "../lib/exchangeRate";
+import { logger } from "../lib/logger";
+
+const router = Router();
+
+function formatGig(g: any, usdToPkr: number) {
+  const { estMonthlyPKR, valueScore, isRecurring } = calcValueScore(
+    g.estPayUSD,
+    g.payModel,
+    g.difficulty,
+    usdToPkr,
+  );
+
+  let valueIndicator: "high" | "good" | "low" | null = null;
+  if (valueScore !== null) {
+    if (valueScore >= 80000) valueIndicator = "high";
+    else if (valueScore >= 40000) valueIndicator = "good";
+    else valueIndicator = "low";
+  }
+
+  return {
+    id: g._id.toString(),
+    source: g.source,
+    title: g.title,
+    company: g.company ?? null,
+    description: g.description ?? null,
+    applyUrl: g.applyUrl ?? null,
+    postedDate: g.postedDate?.toISOString() ?? null,
+    taskType: g.taskType ?? null,
+    payModel: g.payModel ?? null,
+    estPayUSD: g.estPayUSD ?? null,
+    difficulty: g.difficulty ?? null,
+    legitScore: g.legitScore ?? null,
+    redFlags: g.redFlags ?? [],
+    enrichedAt: g.enrichedAt?.toISOString() ?? null,
+    estMonthlyPKR: estMonthlyPKR ? Math.round(estMonthlyPKR) : null,
+    valueScore: valueScore ? Math.round(valueScore) : null,
+    valueIndicator,
+    isRecurring,
+    createdAt: g.createdAt?.toISOString() ?? new Date().toISOString(),
+  };
+}
+
+// GET /api/gigs
+router.get("/gigs", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+
+    const {
+      taskType,
+      payModel,
+      difficulty,
+      minLegitScore,
+      showLowTrust,
+      sort = "value",
+      page = "1",
+      limit = "20",
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+
+    const filter: Record<string, any> = {};
+
+    // Default: hide gigs with legitScore < 60
+    const trustThreshold = showLowTrust === "true" ? 0 : 60;
+    filter.$or = [
+      { legitScore: { $gte: trustThreshold } },
+      { legitScore: { $exists: false } },
+    ];
+
+    if (minLegitScore) {
+      const min = parseInt(minLegitScore);
+      filter.legitScore = { $gte: min };
+    }
+
+    // Prune gigs older than 45 days
+    const fortyFiveDaysAgo = new Date();
+    fortyFiveDaysAgo.setDate(fortyFiveDaysAgo.getDate() - 45);
+    filter.createdAt = { $gte: fortyFiveDaysAgo };
+
+    if (taskType) filter.taskType = taskType;
+    if (payModel) filter.payModel = payModel;
+    if (difficulty) filter.difficulty = difficulty;
+
+    const usdToPkr = await getUsdToPkr();
+
+    let gigs: any[];
+    const total = await Gig.countDocuments(filter);
+
+    if (sort === "value") {
+      // For value sort we need to compute in-app since it's derived
+      gigs = await Gig.find(filter)
+        .sort({ legitScore: -1, createdAt: -1 })
+        .lean();
+
+      gigs = gigs
+        .map((g) => formatGig(g, usdToPkr))
+        .sort((a, b) => {
+          if (a.valueScore === null && b.valueScore === null) return (b.legitScore ?? 0) - (a.legitScore ?? 0);
+          if (a.valueScore === null) return 1;
+          if (b.valueScore === null) return -1;
+          if (b.valueScore !== a.valueScore) return b.valueScore - a.valueScore;
+          return (b.legitScore ?? 0) - (a.legitScore ?? 0);
+        })
+        .slice((pageNum - 1) * limitNum, pageNum * limitNum);
+    } else {
+      const mongoSort: Record<string, 1 | -1> =
+        sort === "newest" ? { createdAt: -1 }
+        : sort === "pay" ? { estPayUSD: -1 }
+        : sort === "legit" ? { legitScore: -1 }
+        : { createdAt: -1 };
+
+      gigs = await Gig.find(filter)
+        .sort(mongoSort)
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .lean();
+
+      gigs = gigs.map((g) => formatGig(g, usdToPkr));
+    }
+
+    const usdRate = usdToPkr;
+
+    res.json({ gigs, total, page: pageNum, limit: limitNum, usdToPkr: usdRate });
+  } catch (err) {
+    logger.error({ err }, "listGigs error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export default router;
