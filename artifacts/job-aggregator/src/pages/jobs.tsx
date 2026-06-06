@@ -31,18 +31,57 @@ const SECTORS = [
 ];
 
 const CATEGORIES: Record<string, string[]> = {
-  "government": ["Federal (FPSC)", "Provincial", "Testing Services (NTS/PTS/OTS/ETEA)", "Departments"],
-  "private-tech": ["Software Development", "Data / AI / Machine Learning", "DevOps / Cloud", "Cybersecurity", "QA / Testing", "UI/UX Design", "Product Management"],
-  "private-banking": ["Banking Operations", "Accounting & Audit", "Investment & Treasury", "Fintech / Digital Banking"],
-  "private-engineering": ["Civil", "Mechanical", "Electrical", "Chemical", "Petroleum", "Energy"],
-  "private-healthcare": ["Medical", "Pharmacy", "Nursing", "Hospital Admin"],
-  "private-education": ["School Teaching", "University Faculty", "Training & Tutoring", "Education Admin"],
-  "private-sales-marketing": ["Digital Marketing", "Field Sales", "Business Development", "Content & Copywriting"],
-  "private-media-creative": ["Journalism", "Graphic Design", "Video & Animation", "Social Media Management"],
-  "private-operations-admin": ["HR & Recruitment", "Customer Service", "Logistics", "Office Administration"],
-  "ngo-nonprofit": ["Program Management", "Field Work", "Fundraising"],
-  "remote-international": ["Remote Full-time", "Remote Part-time", "Overseas"],
-  "internships-fresh": ["Internship", "Graduate Trainee", "Entry Level"],
+  "government": [
+    "Government / Public Sector",
+    "Government — Administration",
+    "Government — IT & Tech",
+    "Government — Finance",
+    "Government — Engineering",
+  ],
+  "private-tech": [
+    "Software Development",
+    "Data & AI",
+    "DevOps & Cloud",
+    "IT & Networking",
+    "Design & UX",
+    "Product Management",
+  ],
+  "private-banking": [
+    "Finance & Banking",
+  ],
+  "private-engineering": [
+    "Engineering",
+    "Construction & Architecture",
+  ],
+  "private-healthcare": [
+    "Healthcare & Medical",
+  ],
+  "private-education": [
+    "Education & Teaching",
+  ],
+  "private-sales-marketing": [
+    "Marketing & Digital",
+    "Sales & Business Dev",
+    "Writing & Content",
+  ],
+  "private-media-creative": [
+    "Writing & Content",
+  ],
+  "private-operations-admin": [
+    "HR & Recruitment",
+    "Customer Support / BPO",
+    "Logistics & Supply Chain",
+    "Project Management",
+    "Legal & Compliance",
+  ],
+  "ngo-nonprofit": [],
+  "remote-international": [
+    "Software Development",
+    "Data & AI",
+    "Marketing & Digital",
+    "Writing & Content",
+  ],
+  "internships-fresh": [],
 };
 
 const LOCATIONS = [

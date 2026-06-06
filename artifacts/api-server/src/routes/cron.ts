@@ -13,7 +13,44 @@ const LINKEDIN_UA =
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── Category mapping from job title ───────────────────────────────────────────
-function mapTitleToCategory(title: string, tags: string[] = []): { sector: string; category: string } {
+// Pakistani government & semi-government organizations
+const GOV_ORGS = [
+  "nadra", "ogdcl", "wapda", "pia ", "pakistan international", "hec ", "higher education commission",
+  "fbr ", "federal board of revenue", "secp", "ptcl", "nha ", "national highway", "iesco", "pesco",
+  "fesco", "lesco", "gepco", "mepco", "hesco", "qesco", "comsats", "nust", "pide", "nescom",
+  "suparco", "pak army", "pak air force", "pak navy", "paf ", "paf-", "fpsc", "ppsc", "kppsc",
+  "bpsc", "spsc", "ajkpsc", "gilgit", "nts ", "national testing", "pta ", "pemra", "pra ", "pra.",
+  "nab ", "national accountability", "secp ", "nhsrc", "nhp", "agpr", "auditor general",
+  "pakistan railways", "railway ", "sui northern", "sui southern", "sngpl", "ssgcl", "pso ",
+  "pakistan state oil", "sme bank", "zarai taraqiati", "ztbl", "nrsp", "rsp ", "erra ", "ndma",
+  "nhsrc", "ministry of", "federal government", "government of pakistan", "government of punjab",
+  "government of sindh", "government of kpk", "government of balochistan", "district government",
+  "capital development", "cda ", "municipal", "tehsil", "ppra", "pdwp", "planning commission",
+  "economic affairs", "cabinet division", "establishment division", "commerce ministry",
+  "water and power", "communication ministry", "state bank of pakistan", "sbp ", "sbp.",
+  "habib bank", "national bank", "bank alfalah", "meezan bank", "ubi ", "united bank",
+  "silkbank", "askari bank", "faysal bank", "bop ", "bank of punjab", "bank of khyber",
+  "samba bank", "js bank", "mcb bank", "mcb ", "allied bank", "soneri bank", "summit bank",
+  "first women bank", "sme bank", "pak oman", "industrial development",
+];
+
+function isGovOrg(company: string): boolean {
+  const c = company.toLowerCase();
+  return GOV_ORGS.some((o) => c.includes(o));
+}
+
+function mapTitleToCategory(title: string, tags: string[] = [], company = ""): { sector: string; category: string } {
+  // Government org detection by company name takes priority
+  if (isGovOrg(company)) {
+    const t2 = title.toLowerCase();
+    // Classify the role type within government
+    if (t2.includes("software") || t2.includes("developer") || t2.includes("it ") || t2.includes("data") || t2.includes("tech") || t2.includes("digital") || t2.includes("ict") || t2.includes("network") || t2.includes("cyber") || t2.includes("system")) return { sector: "Government", category: "Government — IT & Tech" };
+    if (t2.includes("finance") || t2.includes("account") || t2.includes("audit") || t2.includes("treasury")) return { sector: "Government", category: "Government — Finance" };
+    if (t2.includes("engineer") || t2.includes("technical")) return { sector: "Government", category: "Government — Engineering" };
+    if (t2.includes("manager") || t2.includes("officer") || t2.includes("director") || t2.includes("secretary")) return { sector: "Government", category: "Government — Administration" };
+    return { sector: "Government", category: "Government / Public Sector" };
+  }
+
   const t = (title + " " + tags.join(" ")).toLowerCase();
   if (t.includes("software") || t.includes("developer") || t.includes("programmer") || t.includes("coding") || t.includes("backend") || t.includes("frontend") || t.includes("full stack") || t.includes("fullstack") || t.includes("react") || t.includes("node") || t.includes("python") || t.includes("java ") || t.includes(".net")) return { sector: "Technology", category: "Software Development" };
   if (t.includes("devops") || t.includes("sysadmin") || t.includes("infrastructure") || t.includes("cloud") || t.includes("aws") || t.includes("azure") || t.includes("kubernetes") || t.includes("docker")) return { sector: "Technology", category: "DevOps & Cloud" };
@@ -74,40 +111,60 @@ async function fetchLinkedInPakistanJobs(): Promise<LinkedInJob[]> {
   const jobs: LinkedInJob[] = [];
   const seenIds = new Set<string>();
 
-  // Keywords covering: tech, government, banking, marketing, education, healthcare, engineering
-  const searches: { keywords: string; pages: number }[] = [
-    // Technology
+  // Keywords covering: tech, government (ISB), banking, marketing, education, healthcare, engineering
+  const searches: { keywords: string; location?: string; pages: number }[] = [
+    // ── Technology (Pakistan-wide) ──────────────────────────────────────────
     { keywords: "software engineer", pages: 2 },
     { keywords: "web developer", pages: 2 },
     { keywords: "data analyst", pages: 2 },
     { keywords: "IT manager", pages: 1 },
-    // Government / Public sector
-    { keywords: "PPSC jobs", pages: 2 },
-    { keywords: "FPSC jobs", pages: 2 },
-    { keywords: "government jobs", pages: 2 },
-    { keywords: "NTS jobs", pages: 1 },
-    // Finance / Banking
+    { keywords: "DevOps cloud", pages: 1 },
+    // ── Islamabad Government — major public corps & ministries ─────────────
+    { keywords: "NADRA", location: "Islamabad", pages: 2 },
+    { keywords: "OGDCL", location: "Pakistan", pages: 2 },
+    { keywords: "WAPDA", location: "Pakistan", pages: 2 },
+    { keywords: "PIA Pakistan International Airlines", location: "Pakistan", pages: 2 },
+    { keywords: "HEC Higher Education Commission", location: "Islamabad", pages: 2 },
+    { keywords: "State Bank of Pakistan", location: "Pakistan", pages: 2 },
+    { keywords: "FBR Federal Board of Revenue", location: "Islamabad", pages: 2 },
+    { keywords: "SECP Securities Exchange Commission", location: "Islamabad", pages: 1 },
+    { keywords: "PTCL Pakistan Telecom", location: "Pakistan", pages: 2 },
+    { keywords: "NHA National Highway Authority", location: "Pakistan", pages: 1 },
+    { keywords: "IESCO PESCO FESCO LESCO GEPCO", location: "Pakistan", pages: 1 },
+    { keywords: "COMSATS university", location: "Islamabad", pages: 1 },
+    { keywords: "NUST university jobs", location: "Islamabad", pages: 1 },
+    { keywords: "PIDE Pakistan Institute", location: "Islamabad", pages: 1 },
+    { keywords: "NESCOM SUPARCO", location: "Pakistan", pages: 1 },
+    { keywords: "PAF Pakistan Air Force civilian", location: "Pakistan", pages: 1 },
+    { keywords: "ministry secretary Pakistan", location: "Islamabad", pages: 2 },
+    { keywords: "district government Islamabad", location: "Islamabad", pages: 1 },
+    { keywords: "Capital Development Authority CDA", location: "Islamabad", pages: 1 },
+    { keywords: "PPSC provincial public service", location: "Pakistan", pages: 2 },
+    { keywords: "FPSC federal public service", location: "Pakistan", pages: 2 },
+    { keywords: "government officer Pakistan", location: "Pakistan", pages: 2 },
+    { keywords: "Pakistan Railways", location: "Pakistan", pages: 1 },
+    // ── Finance / Banking ──────────────────────────────────────────────────
     { keywords: "bank jobs Pakistan", pages: 2 },
-    { keywords: "accountant", pages: 1 },
-    { keywords: "finance manager", pages: 1 },
-    // Marketing / Sales / HR
+    { keywords: "accountant finance", pages: 1 },
+    // ── Marketing / Sales / HR ─────────────────────────────────────────────
     { keywords: "digital marketing", pages: 1 },
-    { keywords: "sales manager", pages: 1 },
+    { keywords: "sales manager Pakistan", pages: 1 },
     { keywords: "human resources", pages: 1 },
-    // Education / Healthcare
-    { keywords: "teacher lecturer", pages: 1 },
-    { keywords: "medical doctor", pages: 1 },
-    // Engineering
-    { keywords: "civil engineer", pages: 1 },
-    { keywords: "electrical engineer", pages: 1 },
-    // Customer support / BPO
+    // ── Education / Healthcare ─────────────────────────────────────────────
+    { keywords: "teacher lecturer Pakistan", pages: 1 },
+    { keywords: "medical doctor nurse Pakistan", pages: 1 },
+    // ── Engineering ────────────────────────────────────────────────────────
+    { keywords: "civil engineer Pakistan", pages: 1 },
+    { keywords: "electrical mechanical engineer", pages: 1 },
+    // ── Customer support / BPO ─────────────────────────────────────────────
     { keywords: "call center BPO", pages: 1 },
   ];
 
   for (const search of searches) {
+    const loc = encodeURIComponent(search.location ?? "Pakistan");
     for (let page = 0; page < search.pages; page++) {
       const start = page * 25;
-      const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(search.keywords)}&location=Pakistan&start=${start}`;
+      const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(search.keywords)}&location=${loc}&start=${start}`;
 
       try {
         const resp = await fetch(url, {
@@ -196,7 +253,7 @@ router.post("/cron/sync-adzuna", async (req, res) => {
 
     for (const item of linkedInJobs) {
       try {
-        const { sector, category } = mapTitleToCategory(item.title);
+        const { sector, category } = mapTitleToCategory(item.title, [], item.company);
 
         let embedding: number[] | undefined;
         try {
@@ -344,7 +401,7 @@ router.post("/cron/sync-adzuna", async (req, res) => {
           try {
             const description = stripHtml(item.description);
             const postedDate = new Date(item.created_at * 1000);
-            const { sector, category } = mapTitleToCategory(item.title, item.tags ?? []);
+            const { sector, category } = mapTitleToCategory(item.title, item.tags ?? [], item.company_name ?? "");
 
             let embedding: number[] | undefined;
             try {

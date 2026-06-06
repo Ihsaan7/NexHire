@@ -76,8 +76,32 @@ router.get("/jobs", requireAuth, async (req, res) => {
 
     const filter: Record<string, any> = { $and: andClauses };
 
-    if (sector) filter.sector = sector;
-    if (category) filter.category = category;
+    // Map frontend kebab-case sector IDs → DB display-name sector values
+    const SECTOR_MAP: Record<string, string | string[]> = {
+      "government":              "Government",
+      "private-tech":            "Technology",
+      "private-banking":         "Finance",
+      "private-engineering":     "Engineering",
+      "private-healthcare":      "Healthcare",
+      "private-education":       "Education",
+      "private-sales-marketing": ["Marketing", "Business"],
+      "private-media-creative":  "Media",
+      "private-operations-admin":["Human Resources", "Services", "Operations"],
+      "ngo-nonprofit":           "NGO",
+      "remote-international":    ["Technology", "Media", "Business"],
+      "internships-fresh":       "General",
+    };
+
+    if (sector) {
+      const mapped = SECTOR_MAP[sector];
+      if (mapped) {
+        filter.sector = Array.isArray(mapped) ? { $in: mapped } : mapped;
+      } else {
+        // Direct match (already a DB value like "Government")
+        filter.sector = { $regex: new RegExp(sector, "i") };
+      }
+    }
+    if (category) filter.category = { $regex: new RegExp(category.replace(/[-\/]/g, "."), "i") };
     if (location) filter.location = new RegExp(location.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     if (experienceLevel) filter.experienceLevel = experienceLevel;
     if (jobType) filter.jobType = jobType;
