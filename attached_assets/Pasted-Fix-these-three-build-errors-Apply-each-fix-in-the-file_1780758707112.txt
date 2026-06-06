@@ -1,0 +1,29 @@
+Fix these three build errors. Apply each fix in the file noted and verify after.
+
+--- FIX 1: 401 Unauthorized on all API calls (App.tsx + API client) ---
+Cause: Clerk session cookies are blocked inside the Replit iframe, so cookie-based auth fails.
+Fix: Send Clerk's session token as a Bearer header on every request instead of relying on cookies.
+- Create a central API client (e.g. lib/api.ts) that, before each request, calls Clerk's getToken() and sets header: Authorization: `Bearer ${token}`.
+- Add an AuthTokenSetter component mounted at the app root that wires getToken() into that client.
+- Make ALL frontend API calls go through this client — do not leave any raw fetch/axios calls that depend on cookies.
+- On the backend, ensure Clerk middleware reads the token from the Authorization header (Bearer), not just cookies. Use Clerk's requireAuth / verifyToken on protected routes.
+
+--- FIX 2: "PDFParse2 is not a constructor" + "DOMMatrix is not defined" (routes/profile.ts) ---
+Cause: pdf-parse v2 pulls in browser-only pdf.js APIs (DOMMatrix) that don't exist in Node.
+Fix: Remove pdf-parse and use unpdf (Node-native, no DOM dependencies).
+- Run: npm uninstall pdf-parse && npm install unpdf
+- In routes/profile.ts, replace the parsing logic with unpdf's extractText:
+    import { extractText, getDocumentProxy } from 'unpdf';
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const { text } = await extractText(pdf, { mergePages: true });
+- Keep the existing mammoth path for DOCX files. Handle empty/failed extraction gracefully with a clear error.
+
+--- FIX 3: "text-embedding-004 not found for API version v1beta" (lib/gemini.ts) ---
+Cause: the SDK defaults to v1beta, but text-embedding-004 only exists on v1.
+Fix: Set apiVersion "v1" ONLY on the embedding model instance — do NOT change the chat model's version (the gemini-2.0-flash model may rely on v1beta, so keep it separate).
+- Embedding model:
+    const embedModel = genAI.getGenerativeModel({ model: "text-embedding-004" }, { apiVersion: "v1" });
+- Leave the generative/flash model instance as its own separate getGenerativeModel call with default version.
+- Verify embeddings return a 768-dim vector.
+
+After applying all three, restart the app and confirm: (1) authenticated API calls return 200, (2) a test PDF and DOCX both parse to text, (3) CV upload produces a 768-dim embedding with no model errors.
