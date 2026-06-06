@@ -170,7 +170,7 @@ export default function Jobs() {
                 <SelectValue placeholder="All Sectors" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value=" ">All Sectors</SelectItem>
+                <SelectItem value="">All Sectors</SelectItem>
                 {SECTORS.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.label}
@@ -194,7 +194,7 @@ export default function Jobs() {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent className="rounded-none">
-                  <SelectItem value=" ">All Categories</SelectItem>
+                  <SelectItem value="">All Categories</SelectItem>
                   {categoryOptions.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
@@ -218,7 +218,7 @@ export default function Jobs() {
                 <SelectValue placeholder="All Locations" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value=" ">All Locations</SelectItem>
+                <SelectItem value="">All Locations</SelectItem>
                 {LOCATIONS.map((l) => (
                   <SelectItem key={l} value={l}>
                     {l}
@@ -241,7 +241,7 @@ export default function Jobs() {
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value=" ">All Types</SelectItem>
+                <SelectItem value="">All Types</SelectItem>
                 {JOB_TYPES.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.label}
@@ -264,7 +264,7 @@ export default function Jobs() {
                 <SelectValue placeholder="Any Level" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value=" ">Any Level</SelectItem>
+                <SelectItem value="">Any Level</SelectItem>
                 {EXPERIENCE_LEVELS.map((e) => (
                   <SelectItem key={e.id} value={e.id}>
                     {e.label}
@@ -287,7 +287,7 @@ export default function Jobs() {
                 <SelectValue placeholder="Any Time" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value=" ">Any Time</SelectItem>
+                <SelectItem value="">Any Time</SelectItem>
                 {POSTED_WITHIN_OPTIONS.map((o) => (
                   <SelectItem key={o.id} value={o.id}>
                     {o.label}

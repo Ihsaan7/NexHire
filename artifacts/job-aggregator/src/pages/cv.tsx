@@ -51,10 +51,7 @@ export default function CV() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    uploadCv.mutate({ data: formData as any }, {
+    uploadCv.mutate({ data: { file } }, {
       onSuccess: () => {
         toast({ title: "CV uploaded successfully", description: "Your data has been extracted." });
         refetchProfile();
