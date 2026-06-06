@@ -88,9 +88,22 @@ const clerkAppearance = {
   },
 };
 
+function AnimatedBg() {
+  return (
+    <div className="animated-bg">
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
+      <div className="orb orb-4" />
+    </div>
+  );
+}
+
 function SignInPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 relative">
+      <AnimatedBg />
+      <div className="grid-overlay" />
       <div className="noise-overlay" />
       <div className="z-10 w-full max-w-md">
         <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
@@ -102,6 +115,8 @@ function SignInPage() {
 function SignUpPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 relative">
+      <AnimatedBg />
+      <div className="grid-overlay" />
       <div className="noise-overlay" />
       <div className="z-10 w-full max-w-md">
         <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
@@ -113,6 +128,8 @@ function SignUpPage() {
 function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
+      <AnimatedBg />
+      <div className="grid-overlay" />
       <div className="noise-overlay" />
       <div className="z-10 text-center max-w-3xl px-6">
         <img src={`${basePath}/logo.svg`} alt="PK Logo" className="h-16 w-16 mx-auto mb-8" />

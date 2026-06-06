@@ -70,6 +70,13 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
+      <div className="animated-bg">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="orb orb-3" />
+        <div className="orb orb-4" />
+      </div>
+      <div className="grid-overlay" />
       <div className="noise-overlay" />
       
       {/* Desktop Sidebar */}
