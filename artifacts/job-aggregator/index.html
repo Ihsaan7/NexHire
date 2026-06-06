@@ -13,6 +13,18 @@
     <meta name="twitter:title" content="Pakistani Job Aggregator" />
     <meta name="twitter:description" content="Pakistani Job Aggregator — built on Replit. Update this description to reflect the app." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script>
+    try {
+      var t = localStorage.getItem('pk-theme');
+      if (t === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else {
+        document.documentElement.classList.add('dark');
+      }
+    } catch(e) {
+      document.documentElement.classList.add('dark');
+    }
+  </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
