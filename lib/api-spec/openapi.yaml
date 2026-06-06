@@ -1,22 +1,29 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Pakistani Job Aggregator API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: profile
+    description: User profile and CV management
+  - name: jobs
+    description: Job listings
+  - name: savedJobs
+    description: Saved and tracked jobs
+  - name: cron
+    description: Data ingestion
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,8 +31,322 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get current user's profile
+      responses:
+        "200":
+          description: Profile found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  /profile/cv:
+    post:
+      operationId: uploadCv
+      tags: [profile]
+      summary: Upload CV (PDF or DOCX) — extracts text and generates embedding
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CvFileInput"
+      responses:
+        "200":
+          description: CV processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvUploadResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /profile/cv/suggestions:
+    get:
+      operationId: getCvSuggestions
+      tags: [profile]
+      summary: Get AI suggestions to improve the CV
+      responses:
+        "200":
+          description: Suggestions generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvSuggestions"
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List jobs with filters
+      parameters:
+        - name: sector
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: experienceLevel
+          in: query
+          schema:
+            type: string
+        - name: jobType
+          in: query
+          schema:
+            type: string
+        - name: postedWithin
+          in: query
+          description: today | week | month
+          schema:
+            type: string
+        - name: deadlineWithin
+          in: query
+          description: 3days | week | month
+          schema:
+            type: string
+        - name: minMatchScore
+          in: query
+          schema:
+            type: number
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListResponse"
+
+  /jobs/matched:
+    get:
+      operationId: getMatchedJobs
+      tags: [jobs]
+      summary: Get top AI-matched jobs for the current user's CV
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Matched jobs with scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchedJobsResponse"
+
+  /jobs/stats:
+    get:
+      operationId: getJobStats
+      tags: [jobs]
+      summary: Get job count stats by sector
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStats"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get a single job by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /jobs/{id}/analyze:
+    get:
+      operationId: analyzeJobMatch
+      tags: [jobs]
+      summary: Get AI match analysis for a job vs current user's CV (cached)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchAnalysis"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saved-jobs:
+    get:
+      operationId: listSavedJobs
+      tags: [savedJobs]
+      summary: List all saved/tracked jobs for the current user
+      responses:
+        "200":
+          description: Saved jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedJob"
+    post:
+      operationId: saveJob
+      tags: [savedJobs]
+      summary: Save a job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedJobInput"
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedJob"
+
+  /saved-jobs/{id}:
+    patch:
+      operationId: updateSavedJob
+      tags: [savedJobs]
+      summary: Update status or notes on a saved job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedJobUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedJob"
+    delete:
+      operationId: deleteSavedJob
+      tags: [savedJobs]
+      summary: Remove a saved job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /cron/sync-adzuna:
+    post:
+      operationId: syncAdzuna
+      tags: [cron]
+      summary: Trigger Adzuna job sync (protected by CRON_SECRET)
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
+    CvFileInput:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+        - file
+
     HealthStatus:
       type: object
       properties:
@@ -34,3 +355,297 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    UserPreferences:
+      type: object
+      properties:
+        sectors:
+          type: array
+          items:
+            type: string
+        locations:
+          type: array
+          items:
+            type: string
+        experienceLevel:
+          type: string
+        minMatchScore:
+          type: number
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        cvText:
+          type: ["string", "null"]
+        cvUpdatedAt:
+          type: ["string", "null"]
+        preferences:
+          $ref: "#/components/schemas/UserPreferences"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - userId
+
+    ProfileUpdate:
+      type: object
+      properties:
+        preferences:
+          $ref: "#/components/schemas/UserPreferences"
+
+    CvUploadResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        cvTextLength:
+          type: integer
+        cvUpdatedAt:
+          type: string
+      required:
+        - success
+        - cvTextLength
+        - cvUpdatedAt
+
+    CvSuggestions:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            type: string
+        generatedAt:
+          type: string
+      required:
+        - suggestions
+        - generatedAt
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        title:
+          type: string
+        company:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        sector:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        requirements:
+          type: ["string", "null"]
+        experienceLevel:
+          type: ["string", "null"]
+        jobType:
+          type: ["string", "null"]
+        salaryRange:
+          type: ["string", "null"]
+        postedDate:
+          type: ["string", "null"]
+        deadline:
+          type: ["string", "null"]
+        applyUrl:
+          type: ["string", "null"]
+        applicationSteps:
+          type: array
+          items:
+            type: string
+        matchScore:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - source
+        - title
+        - createdAt
+
+    JobListResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - jobs
+        - total
+        - page
+        - limit
+
+    MatchedJob:
+      type: object
+      properties:
+        job:
+          $ref: "#/components/schemas/Job"
+        matchScore:
+          type: number
+      required:
+        - job
+        - matchScore
+
+    MatchedJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchedJob"
+        hasCV:
+          type: boolean
+      required:
+        - jobs
+        - hasCV
+
+    SectorStat:
+      type: object
+      properties:
+        sector:
+          type: string
+        count:
+          type: integer
+      required:
+        - sector
+        - count
+
+    JobStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        bySector:
+          type: array
+          items:
+            $ref: "#/components/schemas/SectorStat"
+        recentCount:
+          type: integer
+      required:
+        - total
+        - bySector
+        - recentCount
+
+    MatchAnalysis:
+      type: object
+      properties:
+        jobId:
+          type: string
+        matchScore:
+          type: integer
+        strengths:
+          type: array
+          items:
+            type: string
+        gaps:
+          type: array
+          items:
+            type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+        cachedAt:
+          type: string
+      required:
+        - jobId
+        - matchScore
+        - strengths
+        - gaps
+        - suggestions
+        - cachedAt
+
+    SavedJob:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        jobId:
+          type: string
+        job:
+          $ref: "#/components/schemas/Job"
+        status:
+          type: string
+          enum: [saved, applied, interview, rejected, offer]
+        notes:
+          type: ["string", "null"]
+        appliedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - jobId
+        - status
+        - createdAt
+
+    SavedJobInput:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [saved, applied, interview, rejected, offer]
+        notes:
+          type: string
+      required:
+        - jobId
+
+    SavedJobUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [saved, applied, interview, rejected, offer]
+        notes:
+          type: string
+        appliedAt:
+          type: string
+
+    SyncResult:
+      type: object
+      properties:
+        inserted:
+          type: integer
+        updated:
+          type: integer
+        deleted:
+          type: integer
+        errors:
+          type: integer
+        message:
+          type: string
+      required:
+        - inserted
+        - updated
+        - deleted
+        - errors
+        - message

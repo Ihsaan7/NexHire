@@ -1,0 +1,2 @@
+- [PK Jobs stack](pk-jobs-stack.md) — MongoDB+Mongoose (not Drizzle/Postgres); Gemini text-embedding-004 + gemini-2.0-flash; Clerk cookie auth (no token headers on web)
+- [PK Jobs first-run setup](pk-jobs-first-run.md) — DB is empty until cron sync runs; Vector Search index must be created in Atlas before AI matching works

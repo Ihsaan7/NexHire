@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface UserPreferences {
+  sectors?: string[];
+  locations?: string[];
+  experienceLevel?: string;
+  minMatchScore?: number;
 }

@@ -5,7 +5,9 @@
  * Pakistani Job Aggregator API
  * OpenAPI spec version: 0.1.0
  */
+import type { Job } from './job';
 
-export interface HealthStatus {
-  status: string;
+export interface MatchedJob {
+  job: Job;
+  matchScore: number;
 }

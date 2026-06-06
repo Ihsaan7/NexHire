@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface SyncResult {
+  inserted: number;
+  updated: number;
+  deleted: number;
+  errors: number;
+  message: string;
 }

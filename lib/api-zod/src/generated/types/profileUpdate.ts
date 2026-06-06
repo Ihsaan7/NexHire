@@ -5,7 +5,8 @@
  * Pakistani Job Aggregator API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserPreferences } from './userPreferences';
 
-export interface HealthStatus {
-  status: string;
+export interface ProfileUpdate {
+  preferences?: UserPreferences;
 }
