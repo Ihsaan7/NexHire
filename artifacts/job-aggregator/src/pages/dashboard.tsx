@@ -4,8 +4,19 @@ import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, ArrowRight, FileWarning, TrendingUp } from "lucide-react";
+import { Briefcase, ArrowRight, FileWarning, TrendingUp, FolderSearch } from "lucide-react";
 import { JobCard } from "@/components/job-card";
+
+const BROWSE_CATEGORIES = [
+  { sector: "private-tech", label: "Technology", sub: "Software, AI, Cloud, QA" },
+  { sector: "government", label: "Government", sub: "FPSC, NTS, Provincial" },
+  { sector: "private-banking", label: "Banking & Finance", sub: "Ops, Audit, Fintech" },
+  { sector: "private-engineering", label: "Engineering", sub: "Civil, Electrical, Energy" },
+  { sector: "private-healthcare", label: "Healthcare", sub: "Medical, Nursing, Pharma" },
+  { sector: "private-sales-marketing", label: "Sales & Marketing", sub: "Digital, BD, Content" },
+  { sector: "ngo-nonprofit", label: "NGO / Non-profit", sub: "Programs, Field, Fundraising" },
+  { sector: "internships-fresh", label: "Internships", sub: "Fresh grad, Trainee, Entry" },
+];
 
 export default function Dashboard() {
   const { data: profile, isLoading: loadingProfile } = useGetProfile();
@@ -127,19 +138,55 @@ export default function Dashboard() {
         )}
       </section>
 
+      {/* Browse by Category */}
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-serif flex items-center gap-2">
+            <FolderSearch className="w-5 h-5 text-primary" />
+            Browse by Category
+          </h2>
+          <Link href="/jobs">
+            <Button variant="ghost" className="font-mono uppercase text-xs rounded-none">
+              All Categories <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {BROWSE_CATEGORIES.map((cat, i) => (
+            <motion.div
+              key={cat.sector}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <Link href={`/jobs?sector=${cat.sector}`}>
+                <div className="border border-border bg-card/50 p-4 hover:border-primary/60 hover:bg-card transition-colors cursor-pointer group">
+                  <div className="font-serif text-sm mb-1 group-hover:text-primary transition-colors">
+                    {cat.label}
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground leading-tight">
+                    {cat.sub}
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
       {/* Recent Jobs */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-serif">Recent Additions</h2>
           <Link href="/jobs">
             <Button variant="ghost" className="font-mono uppercase text-xs rounded-none">
-              Browse Terminal <ArrowRight className="w-4 h-4 ml-2" />
+              Browse All <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {recentJobs?.jobs?.map((job, i) => (
+          {recentJobs?.jobs?.map((job) => (
             <JobCard key={job.id} job={job} />
           ))}
         </div>

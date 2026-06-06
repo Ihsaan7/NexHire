@@ -80,54 +80,55 @@ const EXPERIENCE_LEVELS = [
 
 export default function Jobs() {
   const [search, setSearch] = useState("");
-  const [sector, setSector] = useState<string>("");
-  const [category, setCategory] = useState<string>("");
-  const [location, setLocation] = useState<string>("");
-  const [jobType, setJobType] = useState<string>("");
-  const [experienceLevel, setExperienceLevel] = useState<string>("");
-  const [postedWithin, setPostedWithin] = useState<string>("");
+  const [sector, setSector] = useState<string>("all");
+  const [category, setCategory] = useState<string>("all");
+  const [location, setLocation] = useState<string>("all");
+  const [jobType, setJobType] = useState<string>("all");
+  const [experienceLevel, setExperienceLevel] = useState<string>("all");
+  const [postedWithin, setPostedWithin] = useState<string>("all");
   const [minMatchScore, setMinMatchScore] = useState<number>(0);
 
-  const categoryOptions = sector && CATEGORIES[sector] ? CATEGORIES[sector] : [];
+  const activeSector = sector === "all" ? "" : sector;
+  const categoryOptions = activeSector && CATEGORIES[activeSector] ? CATEGORIES[activeSector] : [];
 
   const { data: profile } = useGetProfile();
   const hasCV = !!profile?.cvText;
 
   const { data, isLoading } = useListJobs({
     search: search || undefined,
-    sector: sector || undefined,
-    category: category || undefined,
-    location: location || undefined,
-    jobType: jobType || undefined,
-    experienceLevel: experienceLevel || undefined,
-    postedWithin: postedWithin || undefined,
+    sector: activeSector || undefined,
+    category: category !== "all" ? category : undefined,
+    location: location !== "all" ? location : undefined,
+    jobType: jobType !== "all" ? jobType : undefined,
+    experienceLevel: experienceLevel !== "all" ? experienceLevel : undefined,
+    postedWithin: postedWithin !== "all" ? postedWithin : undefined,
     minMatchScore: minMatchScore > 0 ? minMatchScore : undefined,
   });
 
   const hasFilters =
     !!search ||
-    !!sector ||
-    !!category ||
-    !!location ||
-    !!jobType ||
-    !!experienceLevel ||
-    !!postedWithin ||
+    sector !== "all" ||
+    category !== "all" ||
+    location !== "all" ||
+    jobType !== "all" ||
+    experienceLevel !== "all" ||
+    postedWithin !== "all" ||
     minMatchScore > 0;
 
   const clearFilters = () => {
     setSearch("");
-    setSector("");
-    setCategory("");
-    setLocation("");
-    setJobType("");
-    setExperienceLevel("");
-    setPostedWithin("");
+    setSector("all");
+    setCategory("all");
+    setLocation("all");
+    setJobType("all");
+    setExperienceLevel("all");
+    setPostedWithin("all");
     setMinMatchScore(0);
   };
 
   const handleSectorChange = (val: string) => {
     setSector(val);
-    setCategory(""); // reset category when sector changes
+    setCategory("all");
   };
 
   return (
@@ -170,7 +171,7 @@ export default function Jobs() {
                 <SelectValue placeholder="All Sectors" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value="">All Sectors</SelectItem>
+                <SelectItem value="all">All Sectors</SelectItem>
                 {SECTORS.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.label}
@@ -194,7 +195,7 @@ export default function Jobs() {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent className="rounded-none">
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categoryOptions.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
@@ -218,7 +219,7 @@ export default function Jobs() {
                 <SelectValue placeholder="All Locations" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value="">All Locations</SelectItem>
+                <SelectItem value="all">All Locations</SelectItem>
                 {LOCATIONS.map((l) => (
                   <SelectItem key={l} value={l}>
                     {l}
@@ -241,7 +242,7 @@ export default function Jobs() {
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 {JOB_TYPES.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.label}
@@ -264,7 +265,7 @@ export default function Jobs() {
                 <SelectValue placeholder="Any Level" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value="">Any Level</SelectItem>
+                <SelectItem value="all">Any Level</SelectItem>
                 {EXPERIENCE_LEVELS.map((e) => (
                   <SelectItem key={e.id} value={e.id}>
                     {e.label}
@@ -287,7 +288,7 @@ export default function Jobs() {
                 <SelectValue placeholder="Any Time" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value="">Any Time</SelectItem>
+                <SelectItem value="all">Any Time</SelectItem>
                 {POSTED_WITHIN_OPTIONS.map((o) => (
                   <SelectItem key={o.id} value={o.id}>
                     {o.label}
