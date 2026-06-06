@@ -99,28 +99,9 @@ router.post(
       const mime = req.file.mimetype;
 
       if (mime === "application/pdf") {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore — pdfjs-dist v5 types live on the root; subpath has no declarations
-        const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
-        pdfjs.GlobalWorkerOptions.workerSrc = "";
-        const loadingTask = pdfjs.getDocument({
-          data: new Uint8Array(req.file.buffer),
-          useSystemFonts: true,
-          disableFontFace: true,
-          verbosity: 0,
-        });
-        const pdf = await loadingTask.promise;
-        const pages: string[] = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          pages.push(
-            content.items
-              .map((item: any) => ("str" in item ? item.str : ""))
-              .join(" ")
-          );
-        }
-        cvText = pages.join("\n");
+        const { extractText } = await import("unpdf");
+        const result = await extractText(new Uint8Array(req.file.buffer), { mergePages: true });
+        cvText = result.text;
       } else {
         const mammoth = await import("mammoth");
         const result = await mammoth.extractRawText({
