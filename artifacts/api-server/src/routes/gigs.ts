@@ -4,6 +4,7 @@ import { connectMongo } from "../lib/mongodb";
 import { Gig } from "../models/Gig";
 import { getUsdToPkr, calcValueScore } from "../lib/exchangeRate";
 import { logger } from "../lib/logger";
+import { runGigSync } from "./sync-gigs";
 
 const router = Router();
 
@@ -44,6 +45,18 @@ function formatGig(g: any, usdToPkr: number) {
     createdAt: g.createdAt?.toISOString() ?? new Date().toISOString(),
   };
 }
+
+// POST /api/gigs/sync — Clerk-auth protected, triggers gig sync in background
+router.post("/gigs/sync", requireAuth, async (req, res) => {
+  res.status(202).json({ message: "Gig sync started." });
+  (async () => {
+    try {
+      await runGigSync();
+    } catch (err) {
+      logger.error({ err }, "gigs/sync background error");
+    }
+  })();
+});
 
 // GET /api/gigs
 router.get("/gigs", requireAuth, async (req, res) => {

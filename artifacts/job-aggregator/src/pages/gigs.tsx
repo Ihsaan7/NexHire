@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ExternalLink, DollarSign, Zap, ShieldCheck, AlertTriangle, TrendingUp, SlidersHorizontal, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { ExternalLink, DollarSign, ShieldCheck, AlertTriangle, TrendingUp, SlidersHorizontal, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useListGigs } from "@workspace/api-client-react";
+import { useAuth } from "@clerk/react";
 import { formatDistanceToNow } from "date-fns";
 
 const TASK_TYPES = [
@@ -178,6 +179,31 @@ export default function Gigs() {
   const [sort, setSort] = useState("value");
   const [showLowTrust, setShowLowTrust] = useState(false);
   const [page, setPage] = useState(1);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const { getToken } = useAuth();
+
+  const triggerSync = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const token = await getToken();
+      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+      const resp = await fetch(`${base}/api/gigs/sync`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (resp.ok) {
+        setSyncMsg("Sync started — gigs will appear in ~2 min. Refresh the page then.");
+      } else {
+        setSyncMsg("Sync failed. Try again.");
+      }
+    } catch {
+      setSyncMsg("Network error. Try again.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const { data, isLoading, refetch } = useListGigs({
     taskType: taskType !== "all" ? taskType : undefined,
@@ -211,15 +237,31 @@ export default function Gigs() {
               Low-barrier gigs + USD-paying remote work. Independent of your CV.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="font-mono text-xs text-muted-foreground border border-border px-2 py-1">
               1 USD ≈ Rs {usdToPkr.toFixed(0)}
             </span>
             <span className="font-mono text-xs text-muted-foreground">
               {total} gigs
             </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={triggerSync}
+              disabled={syncing}
+              className="rounded-none font-mono text-xs uppercase h-8 gap-1.5"
+            >
+              <RefreshCw className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Sync Gigs"}
+            </Button>
           </div>
         </div>
+
+        {syncMsg && (
+          <p className="font-mono text-xs text-primary/80 mt-2 border border-primary/20 px-3 py-2 bg-primary/5">
+            {syncMsg}
+          </p>
+        )}
 
         <p className="font-mono text-[11px] text-muted-foreground/60 mt-3 italic">
           Pay estimates are AI-generated approximations, not guarantees.

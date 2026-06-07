@@ -310,6 +310,30 @@ async function fetchWWRGigs(): Promise<number> {
   return count;
 }
 
+// Exported so gigs.ts can call it from the auth-protected trigger endpoint
+export async function runGigSync() {
+  await connectMongo();
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 45);
+  const pruned = await Gig.deleteMany({ createdAt: { $lt: cutoff } });
+  logger.info({ pruned: pruned.deletedCount }, "Old gigs pruned");
+
+  const [rok, jobicy, remotive, wwr] = await Promise.all([
+    fetchRemoteOK(),
+    fetchJobicy(),
+    fetchRemotiveGigs(),
+    fetchWWRGigs(),
+  ]);
+
+  logger.info({ remoteok: rok, jobicy, remotive, wwr }, "Gig sources fetched");
+
+  await enrichPendingGigs();
+
+  const total = await Gig.countDocuments();
+  logger.info({ total }, "Gig sync complete");
+}
+
 // POST /api/cron/sync-gigs
 router.post("/cron/sync-gigs", async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -324,27 +348,7 @@ router.post("/cron/sync-gigs", async (req, res) => {
 
   (async () => {
     try {
-      await connectMongo();
-
-      // Prune old gigs (> 45 days)
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 45);
-      const pruned = await Gig.deleteMany({ createdAt: { $lt: cutoff } });
-      logger.info({ pruned: pruned.deletedCount }, "Old gigs pruned");
-
-      const [rok, jobicy, remotive, wwr] = await Promise.all([
-        fetchRemoteOK(),
-        fetchJobicy(),
-        fetchRemotiveGigs(),
-        fetchWWRGigs(),
-      ]);
-
-      logger.info({ remoteok: rok, jobicy, remotive, wwr }, "Gig sources fetched");
-
-      await enrichPendingGigs();
-
-      const total = await Gig.countDocuments();
-      logger.info({ total }, "Gig sync complete");
+      await runGigSync();
     } catch (err) {
       logger.error({ err }, "sync-gigs background error");
     }
