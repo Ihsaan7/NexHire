@@ -1,12 +1,4 @@
-/* ============================================================
-   Job-Seeker — Visual System  (globals.css)
-   Tailwind v4 CSS-first config — drop-in replacement for index.css
-   Type:   Newsreader (display serif) · Hanken Grotesk (UI) · JetBrains Mono (labels)
-   Color:  Warm deep-ink charcoal + warm paper, mint-green accent
-   Shape:  Sharp cards, rounded pills/buttons
-   ============================================================ */
-
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -16,33 +8,23 @@
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-  --color-surface: hsl(var(--surface));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-elevated: hsl(var(--card-elevated));
   --color-card-border: hsl(var(--card-border));
-
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
-
+  --color-popover-border: hsl(var(--popover-border));
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-soft: hsl(var(--primary-soft));
-  --color-primary-strong: hsl(var(--primary-strong));
-
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-
-  --color-success: hsl(var(--success));
-  --color-warning: hsl(var(--warning));
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
 
@@ -50,223 +32,179 @@
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
 
-  /* Mixed corners: sharp cards, rounded controls */
-  --radius-card: 0px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-pill: 999px;
-
-  --shadow-card: 0 1px 0 0 hsl(var(--card-border)), 0 12px 40px -24px rgb(0 0 0 / 0.55);
-  --shadow-pop: 0 24px 60px -20px rgb(0 0 0 / 0.65);
-  --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.45), 0 14px 50px -18px hsl(var(--primary) / 0.35);
-
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ---------- DARK (default) — warm deep-ink charcoal ---------- */
-.dark {
-  --background: 36 8% 7%;
-  --surface: 36 8% 9%;
-  --foreground: 40 14% 95%;
-
-  --card: 36 7% 11%;
-  --card-foreground: 40 14% 95%;
-  --card-elevated: 36 7% 14%;
-  --card-border: 38 7% 18%;
-
-  --popover: 36 8% 12%;
-  --popover-foreground: 40 14% 95%;
-
-  --primary: 150 66% 64%;
-  --primary-foreground: 156 45% 8%;
-  --primary-soft: 150 30% 16%;
-  --primary-strong: 150 62% 66%;
-
-  --secondary: 36 6% 15%;
-  --secondary-foreground: 40 14% 95%;
-  --muted: 36 6% 15%;
-  --muted-foreground: 40 6% 62%;
-  --accent: 36 6% 15%;
-  --accent-foreground: 40 14% 95%;
-
-  --success: 150 66% 64%;
-  --warning: 38 92% 62%;
-  --destructive: 6 72% 60%;
-  --destructive-foreground: 0 0% 98%;
-
-  --border: 38 7% 17%;
-  --input: 38 7% 17%;
-  --ring: 150 66% 64%;
-
-  --radius: 0rem;
-  --app-font-sans: 'Hanken Grotesk', system-ui, sans-serif;
-  --app-font-serif: 'Newsreader', Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', Menlo, monospace;
-}
-
-/* ---------- LIGHT — warm paper ---------- */
+/* Light mode — warm Claude-inspired palette */
 :root {
   --background: 40 30% 97%;
-  --surface: 40 26% 99%;
-  --foreground: 38 16% 12%;
-
-  --card: 0 0% 100%;
-  --card-foreground: 38 16% 12%;
-  --card-elevated: 0 0% 100%;
-  --card-border: 38 16% 88%;
-
-  --popover: 0 0% 100%;
-  --popover-foreground: 38 16% 12%;
-
-  --primary: 152 54% 34%;
-  --primary-foreground: 0 0% 100%;
-  --primary-soft: 150 48% 90%;
-  --primary-strong: 152 58% 30%;
-
-  --secondary: 40 18% 92%;
-  --secondary-foreground: 38 18% 18%;
-  --muted: 40 18% 92%;
-  --muted-foreground: 38 8% 42%;
-  --accent: 40 18% 92%;
-  --accent-foreground: 38 18% 18%;
-
-  --success: 152 54% 34%;
-  --warning: 32 90% 44%;
-  --destructive: 4 72% 48%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 38 16% 86%;
-  --input: 38 16% 86%;
-  --ring: 152 54% 38%;
-
+  --foreground: 220 20% 12%;
+  --card: 38 25% 95%;
+  --card-foreground: 220 20% 12%;
+  --popover: 38 25% 95%;
+  --popover-foreground: 220 20% 12%;
+  --primary: 0 72.2% 50.6%;
+  --primary-foreground: 0 85.7% 97.3%;
+  --secondary: 38 18% 90%;
+  --secondary-foreground: 220 18% 18%;
+  --muted: 38 18% 90%;
+  --muted-foreground: 220 10% 46%;
+  --accent: 38 18% 90%;
+  --accent-foreground: 220 18% 18%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 35 15% 84%;
+  --input: 35 15% 84%;
+  --ring: 0 72.2% 50.6%;
   --radius: 0rem;
-  --app-font-sans: 'Hanken Grotesk', system-ui, sans-serif;
-  --app-font-serif: 'Newsreader', Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', Menlo, monospace;
+  --app-font-sans: 'DM Sans', sans-serif;
+  --app-font-serif: 'Fraunces', serif;
+  --app-font-mono: Menlo, monospace;
+}
+
+/* Dark mode — near-black editorial */
+.dark {
+  --background: 0 0% 4%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 72.2% 50.6%;
+  --primary-foreground: 0 85.7% 97.3%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 0 0% 14.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
+  --input: 0 0% 14.9%;
+  --ring: 0 72.2% 50.6%;
 }
 
 @layer base {
-  * { @apply border-border; }
+  * {
+    @apply border-border;
+  }
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    font-feature-settings: "ss01", "cv01";
   }
-  .font-serif { font-feature-settings: "liga", "dlig"; letter-spacing: -0.01em; }
-  .kicker {
-    font-family: var(--app-font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    font-size: 0.6875rem;
-    color: hsl(var(--muted-foreground));
-  }
-  .nums { font-variant-numeric: tabular-nums; }
 }
 
-/* ============================================================
-   COMPONENT UTILITIES
-   ============================================================ */
-
-/* Filter pill */
-.pill {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.4rem 0.85rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid hsl(var(--card-border));
-  background: hsl(var(--surface));
-  color: hsl(var(--muted-foreground));
-  font-size: 0.8125rem; font-weight: 500;
-  white-space: nowrap; cursor: pointer;
-  transition: color .2s var(--ease-out-expo),
-              background .2s var(--ease-out-expo),
-              border-color .2s var(--ease-out-expo),
-              transform .15s var(--ease-spring);
-}
-.pill:hover { color: hsl(var(--foreground)); border-color: hsl(var(--muted-foreground) / .5); }
-.pill:active { transform: scale(.95); }
-.pill[data-active="true"] {
-  background: hsl(var(--primary-soft));
-  border-color: hsl(var(--primary) / .5);
-  color: hsl(var(--primary-strong));
-}
-
-/* Job card — sharp corners, hover lift + accent edge */
-.job-card {
-  position: relative;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--card-border));
-  border-radius: var(--radius-card);
-  transition: transform .35s var(--ease-out-expo),
-              border-color .35s var(--ease-out-expo),
-              box-shadow .35s var(--ease-out-expo);
-}
-.job-card::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
-  background: hsl(var(--primary)); transform: scaleY(0); transform-origin: top;
-  transition: transform .35s var(--ease-out-expo);
-}
-.job-card:hover {
-  transform: translateY(-3px);
-  border-color: hsl(var(--primary) / .35);
-  box-shadow: var(--shadow-glow);
-}
-.job-card:hover::before { transform: scaleY(1); }
-
-/* Buttons */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  border-radius: var(--radius-pill); font-weight: 600; font-size: .875rem;
-  padding: .6rem 1.1rem; cursor: pointer; white-space: nowrap;
-  transition: transform .15s var(--ease-spring), filter .2s, background .2s;
-}
-.btn:active { transform: scale(.96); }
-.btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
-.btn-primary:hover { filter: brightness(1.06); }
-.btn-ghost { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
-.btn-ghost:hover { background: hsl(var(--accent)); }
-
-/* ============================================================
-   AMBIENT BACKGROUND  (mint-tinted)
-   ============================================================ */
 .noise-overlay {
-  position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: .03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
-.animated-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.orb { position: absolute; border-radius: 50%; filter: blur(90px); animation: float linear infinite; }
-.orb-1 { width: 620px; height: 620px; background: radial-gradient(circle, hsl(150 66% 50%) 0%, transparent 70%); top: -12%; left: -8%; opacity: .14; animation: drift1 24s linear infinite; }
-.orb-2 { width: 520px; height: 520px; background: radial-gradient(circle, hsl(168 60% 42%) 0%, transparent 70%); bottom: -16%; right: -10%; opacity: .12; animation: drift2 30s linear infinite; }
-.orb-3 { width: 380px; height: 380px; background: radial-gradient(circle, hsl(140 60% 55%) 0%, transparent 70%); top: 42%; left: 52%; opacity: .08; animation: drift3 19s linear infinite; }
-.orb-4 { width: 300px; height: 300px; background: radial-gradient(circle, hsl(45 80% 55%) 0%, transparent 70%); top: 18%; right: 22%; opacity: .07; animation: drift4 36s linear infinite; }
 
+/* Animated background orbs */
+.animated-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.18;
+  animation: float linear infinite;
+}
+
+.orb-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, hsl(0 72% 50%) 0%, transparent 70%);
+  top: -10%;
+  left: -10%;
+  animation-name: drift1;
+  animation-duration: 22s;
+}
+
+.orb-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, hsl(0 80% 35%) 0%, transparent 70%);
+  bottom: -15%;
+  right: -10%;
+  animation-name: drift2;
+  animation-duration: 28s;
+  opacity: 0.12;
+}
+
+.orb-3 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, hsl(0 60% 60%) 0%, transparent 70%);
+  top: 40%;
+  left: 50%;
+  animation-name: drift3;
+  animation-duration: 18s;
+  opacity: 0.08;
+}
+
+.orb-4 {
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, hsl(15 80% 45%) 0%, transparent 70%);
+  top: 20%;
+  right: 20%;
+  animation-name: drift4;
+  animation-duration: 34s;
+  opacity: 0.1;
+}
+
+@keyframes drift1 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  25%  { transform: translate(80px, 60px) scale(1.08); }
+  50%  { transform: translate(40px, 120px) scale(0.95); }
+  75%  { transform: translate(-40px, 60px) scale(1.05); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes drift2 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  30%  { transform: translate(-70px, -50px) scale(1.1); }
+  60%  { transform: translate(-120px, 30px) scale(0.92); }
+  80%  { transform: translate(-30px, -60px) scale(1.04); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes drift3 {
+  0%   { transform: translate(-50%, -50%) scale(1); }
+  33%  { transform: translate(calc(-50% + 90px), calc(-50% - 70px)) scale(1.15); }
+  66%  { transform: translate(calc(-50% - 60px), calc(-50% + 50px)) scale(0.9); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes drift4 {
+  0%   { transform: translate(0px, 0px) rotate(0deg); }
+  25%  { transform: translate(50px, 80px) rotate(90deg); }
+  50%  { transform: translate(-30px, 110px) rotate(180deg); }
+  75%  { transform: translate(-70px, 40px) rotate(270deg); }
+  100% { transform: translate(0px, 0px) rotate(360deg); }
+}
+
+/* Subtle scanline grid */
 .grid-overlay {
-  position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
   background-image:
-    linear-gradient(hsl(var(--foreground) / .02) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--foreground) / .02) 1px, transparent 1px);
-  background-size: 52px 52px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 80%);
-}
-
-@keyframes drift1 { 0%{transform:translate(0,0) scale(1)} 25%{transform:translate(80px,60px) scale(1.08)} 50%{transform:translate(40px,120px) scale(.95)} 75%{transform:translate(-40px,60px) scale(1.05)} 100%{transform:translate(0,0) scale(1)} }
-@keyframes drift2 { 0%{transform:translate(0,0) scale(1)} 30%{transform:translate(-70px,-50px) scale(1.1)} 60%{transform:translate(-120px,30px) scale(.92)} 80%{transform:translate(-30px,-60px) scale(1.04)} 100%{transform:translate(0,0) scale(1)} }
-@keyframes drift3 { 0%{transform:translate(-50%,-50%) scale(1)} 33%{transform:translate(calc(-50% + 90px),calc(-50% - 70px)) scale(1.15)} 66%{transform:translate(calc(-50% - 60px),calc(-50% + 50px)) scale(.9)} 100%{transform:translate(-50%,-50%) scale(1)} }
-@keyframes drift4 { 0%{transform:translate(0,0) rotate(0)} 25%{transform:translate(50px,80px) rotate(90deg)} 50%{transform:translate(-30px,110px) rotate(180deg)} 75%{transform:translate(-70px,40px) rotate(270deg)} 100%{transform:translate(0,0) rotate(360deg)} }
-
-/* Card entrance */
-@keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-.animate-card-in { animation: card-in .55s var(--ease-out-expo) both; }
-
-/* Match-score ring sweep */
-@keyframes ring-fill { from { stroke-dashoffset: var(--ring-circ); } }
-.animate-ring { animation: ring-fill 1.1s var(--ease-out-expo) both; }
-
-/* Shimmer on "NEW" / live tags */
-@keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .4; transform: scale(.8);} }
-.pulse-dot { animation: pulse-dot 1.8s ease-in-out infinite; }
-
-@media (prefers-reduced-motion: reduce) {
-  .orb, .animate-card-in, .animate-ring, .pulse-dot { animation: none !important; }
-  .job-card { transition: none; }
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
