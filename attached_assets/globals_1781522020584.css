@@ -31,8 +31,8 @@
 
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-soft: hsl(var(--primary-soft));
-  --color-primary-strong: hsl(var(--primary-strong));
+  --color-primary-soft: hsl(var(--primary-soft));        /* tinted fills / active pills */
+  --color-primary-strong: hsl(var(--primary-strong));    /* text-safe accent (links) */
 
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
@@ -153,7 +153,9 @@
     @apply font-sans antialiased bg-background text-foreground;
     font-feature-settings: "ss01", "cv01";
   }
+  /* Editorial display defaults */
   .font-serif { font-feature-settings: "liga", "dlig"; letter-spacing: -0.01em; }
+  /* Monospace kicker / eyebrow label */
   .kicker {
     font-family: var(--app-font-mono);
     text-transform: uppercase;
@@ -161,6 +163,7 @@
     font-size: 0.6875rem;
     color: hsl(var(--muted-foreground));
   }
+  /* Tabular numerals for money / scores */
   .nums { font-variant-numeric: tabular-nums; }
 }
 
@@ -227,7 +230,7 @@
 .btn-ghost:hover { background: hsl(var(--accent)); }
 
 /* ============================================================
-   AMBIENT BACKGROUND  (mint-tinted)
+   AMBIENT BACKGROUND  (mint-tinted, warm)
    ============================================================ */
 .noise-overlay {
   position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: .03;
@@ -254,7 +257,7 @@
 @keyframes drift3 { 0%{transform:translate(-50%,-50%) scale(1)} 33%{transform:translate(calc(-50% + 90px),calc(-50% - 70px)) scale(1.15)} 66%{transform:translate(calc(-50% - 60px),calc(-50% + 50px)) scale(.9)} 100%{transform:translate(-50%,-50%) scale(1)} }
 @keyframes drift4 { 0%{transform:translate(0,0) rotate(0)} 25%{transform:translate(50px,80px) rotate(90deg)} 50%{transform:translate(-30px,110px) rotate(180deg)} 75%{transform:translate(-70px,40px) rotate(270deg)} 100%{transform:translate(0,0) rotate(360deg)} }
 
-/* Card entrance */
+/* Card entrance — stagger with inline animation-delay */
 @keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 .animate-card-in { animation: card-in .55s var(--ease-out-expo) both; }
 
