@@ -6,6 +6,7 @@ import savedJobsRouter from "./savedJobs";
 import cronRouter from "./cron";
 import gigsRouter from "./gigs";
 import syncGigsRouter from "./sync-gigs";
+import practiceRouter from "./practice";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(savedJobsRouter);
 router.use(cronRouter);
 router.use(gigsRouter);
 router.use(syncGigsRouter);
+router.use(practiceRouter);
 
 export default router;

@@ -13,6 +13,7 @@ import {
   Sun,
   Moon,
   DollarSign,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile as useMobile } from "@/hooks/use-mobile";
@@ -24,7 +25,8 @@ const navItems = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/gigs", label: "Side Income", icon: DollarSign },
   { href: "/tracker", label: "Tracker", icon: Trello },
-  { href: "/cv", label: "CV Analysis", icon: FileText },
+  { href: "/cv", label: "CV Studio", icon: FileText },
+  { href: "/practice", label: "Practice", icon: GraduationCap },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

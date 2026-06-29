@@ -3,7 +3,7 @@ import multer from "multer";
 import { requireAuth } from "./auth";
 import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
-import { generateEmbedding, generateCvSuggestions } from "../lib/gemini";
+import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini";
 import { logger } from "../lib/logger";
 
 // Use memory storage — never write CV to disk
@@ -139,6 +139,47 @@ router.post(
     }
   },
 );
+
+// POST /api/profile/cv/audit
+router.post("/profile/cv/audit", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+    const userId = (req as any).userId as string;
+    const profile = await Profile.findOne({ userId });
+    if (!profile?.cvText) {
+      res.status(400).json({ error: "No CV uploaded yet" });
+      return;
+    }
+    const audit = await auditCvPakistan(profile.cvText);
+    res.json(audit);
+  } catch (err) {
+    logger.error({ err }, "cvAudit error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/profile/cv/refine
+router.post("/profile/cv/refine", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+    const userId = (req as any).userId as string;
+    const { jobTitle, jobDescription } = req.body;
+    if (!jobDescription?.trim()) {
+      res.status(400).json({ error: "jobDescription is required" });
+      return;
+    }
+    const profile = await Profile.findOne({ userId });
+    if (!profile?.cvText) {
+      res.status(400).json({ error: "No CV uploaded yet" });
+      return;
+    }
+    const result = await refineCvForJob(profile.cvText, jobTitle || "the role", jobDescription);
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, "cvRefine error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // GET /api/profile/cv/suggestions
 router.get("/profile/cv/suggestions", requireAuth, async (req, res) => {

@@ -19,6 +19,7 @@ import JobDetail from "@/pages/job-detail";
 import Gigs from "@/pages/gigs";
 import Tracker from "@/pages/tracker";
 import CV from "@/pages/cv";
+import Practice from "@/pages/practice";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
@@ -216,6 +217,7 @@ function ClerkProviderWithRoutes() {
               <Route path="/gigs"><ProtectedRoute component={Gigs} /></Route>
               <Route path="/tracker"><ProtectedRoute component={Tracker} /></Route>
               <Route path="/cv"><ProtectedRoute component={CV} /></Route>
+              <Route path="/practice"><ProtectedRoute component={Practice} /></Route>
               <Route path="/settings"><ProtectedRoute component={Settings} /></Route>
 
               <Route><NotFound /></Route>
