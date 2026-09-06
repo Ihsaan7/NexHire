@@ -5,9 +5,10 @@ import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wo
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
 import { ThemeProvider } from "@/context/theme";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, useGetProfile } from "@workspace/api-client-react";
 
 // Import Layout
 import { Layout } from "@/components/layout";
@@ -22,6 +23,8 @@ import CV from "@/pages/cv";
 import Practice from "@/pages/practice";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
+import Onboarding from "@/pages/onboarding";
+import { isOnboardingComplete } from "@/lib/onboarding";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -174,13 +177,52 @@ function HomeRedirect() {
   );
 }
 
+function OnboardingGuard({ component: Component }: { component: any }) {
+  const { data: profile, isLoading, isError, refetch } = useGetProfile();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Loading profile…
+        </p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="border border-destructive/30 bg-card/40 p-8 text-center max-w-md">
+          <p className="font-serif text-xl mb-2">Unable to load your profile</p>
+          <Button
+            variant="outline"
+            className="rounded-none font-mono text-xs uppercase"
+            onClick={() => void refetch()}
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isOnboardingComplete(profile)) {
+    return <Redirect to="/onboarding" />;
+  }
+
+  return (
+    <Layout>
+      <Component />
+    </Layout>
+  );
+}
+
 function ProtectedRoute({ component: Component }: { component: any }) {
   return (
     <>
       <Show when="signed-in">
-        <Layout>
-          <Component />
-        </Layout>
+        <OnboardingGuard component={Component} />
       </Show>
       <Show when="signed-out">
         <Redirect to="/" />
@@ -210,6 +252,14 @@ function ClerkProviderWithRoutes() {
               <Route path="/" component={HomeRedirect} />
               <Route path="/sign-in/*?" component={SignInPage} />
               <Route path="/sign-up/*?" component={SignUpPage} />
+              <Route path="/onboarding">
+                <Show when="signed-in">
+                  <Onboarding />
+                </Show>
+                <Show when="signed-out">
+                  <Redirect to="/" />
+                </Show>
+              </Route>
               
               <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
               <Route path="/jobs"><ProtectedRoute component={Jobs} /></Route>

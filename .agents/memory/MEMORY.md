@@ -5,3 +5,4 @@
 - [API validation and generated schemas](api-validation.md) — update OpenAPI constraints before codegen; confirm whether generated exports are runtime parsers or types only
 - [Practice session persistence](practice-persistence.md) — server-side sessions are the source of truth; restore the latest active/completed session on reload
 - [Background sync status](sync-status.md) — shared lifecycle prevents duplicate runs; UI polls only while active and refreshes results on completion
+- [Onboarding completion](onboarding-completion.md) — infer setup from experience plus one target sector; CV stays optional and no extra profile flag is needed
