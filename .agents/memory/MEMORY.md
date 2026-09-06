@@ -3,3 +3,4 @@
 - [Atlas vector search index](atlas-vector-index.md) — job_embedding_index created programmatically; 3072 dims, cosine; embeds from gemini-embedding-001
 - [Gigs feature architecture](gigs-feature.md) — Side Income gigs are a separate Gig model/collection, never mixed with Jobs; value scoring computed at query time not stored.
 - [API validation and generated schemas](api-validation.md) — update OpenAPI constraints before codegen; confirm whether generated exports are runtime parsers or types only
+- [Practice session persistence](practice-persistence.md) — server-side sessions are the source of truth; restore the latest active/completed session on reload

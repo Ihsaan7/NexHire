@@ -5,6 +5,7 @@ import { Profile } from "../models/Profile";
 import { PracticeSession } from "../models/PracticeSession";
 import { startPracticeSession, continuePracticeSession } from "../lib/gemini";
 import {
+  GetLatestPracticeSessionResponse,
   SendPracticeMessageBody,
   SendPracticeMessageResponse,
   StartPracticeSessionBody,
@@ -86,7 +87,7 @@ router.get("/practice/session", requireAuth, async (req, res) => {
       return;
     }
 
-    res.json(formatPracticeSession(session));
+    res.json(GetLatestPracticeSessionResponse.parse(formatPracticeSession(session)));
   } catch (err) {
     sendInternalServerError(req, res, err, "getLatestPracticeSession error");
   }
@@ -118,6 +119,10 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       res.status(400).json({ error: "Practice session is already complete" });
       return;
     }
+    if (questionNumber !== session.questionNumber) {
+      res.status(409).json({ error: "Practice session is out of sync. Reload and try again." });
+      return;
+    }
 
     let cvText: string | undefined;
     if (mode === "cv") {
@@ -126,7 +131,7 @@ router.post("/practice/message", requireAuth, async (req, res) => {
     }
 
     const storedHistory = [
-      ...session.messages.map((message) => ({
+      ...session.messages.map((message: { role: "ai" | "user"; content: string }) => ({
         role: message.role,
         content: message.content,
       })),
@@ -161,7 +166,7 @@ router.post("/practice/message", requireAuth, async (req, res) => {
         $set: {
           messages: updatedMessages,
           currentQuestion: result.nextQuestion ?? "",
-          questionNumber: questionNumber + 1,
+          questionNumber: session.questionNumber + 1,
           isComplete,
           summary: result.summary ?? "",
           avgScore: scores.length
@@ -175,7 +180,7 @@ router.post("/practice/message", requireAuth, async (req, res) => {
     res.json(SendPracticeMessageResponse.parse({
       sessionId,
       ...result,
-      questionNumber: questionNumber + 1,
+      questionNumber: session.questionNumber + 1,
     }));
   } catch (err) {
     sendInternalServerError(req, res, err, "practiceMessage error");
