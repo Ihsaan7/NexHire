@@ -3,11 +3,22 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const CHAT_MODEL = "gemini-2.5-flash-lite";
+export const EMBEDDING_DIMENSIONS = 3072;
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
   const result = await model.embedContent(text);
-  return result.embedding.values;
+  const values = result.embedding.values;
+  if (
+    !Array.isArray(values) ||
+    values.length !== EMBEDDING_DIMENSIONS ||
+    values.some((value) => !Number.isFinite(value))
+  ) {
+    throw new Error(
+      `Embedding returned ${Array.isArray(values) ? values.length : 0} dimensions; expected ${EMBEDDING_DIMENSIONS}`,
+    );
+  }
+  return values;
 }
 
 function fallbackSuggestions(cvText: string): string[] {

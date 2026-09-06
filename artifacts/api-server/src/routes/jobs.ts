@@ -5,7 +5,7 @@ import { connectMongo } from "../lib/mongodb";
 import { Job } from "../models/Job";
 import { Profile } from "../models/Profile";
 import { MatchAnalysis } from "../models/MatchAnalysis";
-import { analyzeJobMatch } from "../lib/gemini";
+import { analyzeJobMatch, EMBEDDING_DIMENSIONS } from "../lib/gemini";
 import { checkRateLimit } from "../lib/rateLimit";
 import { logger } from "../lib/logger";
 import {
@@ -44,6 +44,53 @@ function formatJob(job: any, matchScore?: number) {
     matchScore: matchScore ?? null,
     createdAt: job.createdAt?.toISOString() ?? new Date().toISOString(),
   };
+}
+
+function isUsableEmbedding(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length === EMBEDDING_DIMENSIONS &&
+    value.every((component) => typeof component === "number" && Number.isFinite(component))
+  );
+}
+
+function cosineSimilarity(left: number[], right: number[]): number {
+  let dot = 0;
+  let leftMagnitude = 0;
+  let rightMagnitude = 0;
+
+  for (let i = 0; i < left.length; i++) {
+    dot += left[i] * right[i];
+    leftMagnitude += left[i] * left[i];
+    rightMagnitude += right[i] * right[i];
+  }
+
+  if (leftMagnitude === 0 || rightMagnitude === 0) return 0;
+  return dot / (Math.sqrt(leftMagnitude) * Math.sqrt(rightMagnitude));
+}
+
+async function findLocalVectorMatches(queryVector: number[], limit: number) {
+  const candidates = await Job.find({
+    embedding: { $exists: true, $ne: [] },
+    $or: [{ deadline: { $exists: false } }, { deadline: { $gte: new Date() } }],
+  })
+    .sort({ createdAt: -1 })
+    .limit(1000)
+    .lean();
+
+  return candidates
+    .filter((job) => isUsableEmbedding(job.embedding))
+    .map((job) => {
+      const similarity = cosineSimilarity(queryVector, job.embedding as number[]);
+      return {
+        job: formatJob(job),
+        matchScore: Math.round(Math.max(0, Math.min(1, similarity)) * 100),
+        similarity,
+      };
+    })
+    .sort((left, right) => right.similarity - left.similarity)
+    .slice(0, limit)
+    .map(({ similarity: _similarity, ...match }) => match);
 }
 
 // GET /api/jobs
@@ -198,8 +245,17 @@ router.get("/jobs/matched", requireAuth, async (req, res) => {
 
     const profile = await Profile.findOne({ userId });
 
-    if (!profile?.cvEmbedding?.length) {
+    if (!profile?.cvText) {
       res.json(GetMatchedJobsResponse.parse({ jobs: [], hasCV: false }));
+      return;
+    }
+
+    if (!isUsableEmbedding(profile.cvEmbedding)) {
+      logger.warn(
+        { userId, dimensions: profile.cvEmbedding?.length ?? 0 },
+        "CV embedding unavailable or invalid",
+      );
+      res.json(GetMatchedJobsResponse.parse({ jobs: [], hasCV: true }));
       return;
     }
 
@@ -240,21 +296,20 @@ router.get("/jobs/matched", requireAuth, async (req, res) => {
 
       res.json(GetMatchedJobsResponse.parse({ jobs, hasCV: true }));
     } catch (vectorErr: any) {
-      // Vector search index may not be set up yet — fall back to recent jobs
       logger.warn(
         { err: vectorErr?.message },
-        "Vector search unavailable, falling back to recent jobs",
+        "Vector search unavailable, falling back to local cosine scoring",
       );
-      const jobs = await Job.find({
-        $or: [{ deadline: { $exists: false } }, { deadline: { $gte: new Date() } }],
-      })
-        .sort({ createdAt: -1 })
-        .limit(limitNum);
-
-      res.json(GetMatchedJobsResponse.parse({
-        jobs: jobs.map((j) => ({ job: formatJob(j), matchScore: 0 })),
-        hasCV: true,
-      }));
+      try {
+        const jobs = await findLocalVectorMatches(profile.cvEmbedding, limitNum);
+        res.json(GetMatchedJobsResponse.parse({ jobs, hasCV: true }));
+      } catch (fallbackErr: any) {
+        logger.error(
+          { err: fallbackErr?.message },
+          "Local vector fallback failed",
+        );
+        res.json(GetMatchedJobsResponse.parse({ jobs: [], hasCV: true }));
+      }
     }
   } catch (err) {
     sendInternalServerError(req, res, err, "getMatchedJobs error");

@@ -10,4 +10,4 @@ description: MongoDB Atlas vector search index for job CV matching
 
 **Why:** Atlas vector search indexes cannot be created through standard MongoDB driver methods; must use `createSearchIndex()`. Takes ~2 min to build after creation.
 
-**How to apply:** If matched jobs return empty or fall back to recent jobs, check if index exists and is READY in Atlas. The code gracefully falls back to `Job.find().sort({createdAt:-1})` when vector search fails.
+**How to apply:** Keep all stored/query embeddings at 3072 finite numeric dimensions. If Atlas is unavailable, matched jobs should fall back to cosine ranking over valid stored job embeddings; never present recent jobs with fabricated zero scores as AI matches.
