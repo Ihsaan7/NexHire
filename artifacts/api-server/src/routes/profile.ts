@@ -36,27 +36,56 @@ const upload = multer({
 
 const router = Router();
 
+function formatPersistedDate(value: unknown, fallback: Date): string {
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    if (Number.isFinite(parsed.getTime())) return parsed.toISOString();
+  }
+
+  return fallback.toISOString();
+}
+
 function formatProfile(profile: any) {
+  const fallbackGeneratedAt =
+    profile.cvUpdatedAt instanceof Date ? profile.cvUpdatedAt : profile.updatedAt;
+  const hasSavedAudit =
+    Number.isFinite(profile.cvAudit?.score) &&
+    Array.isArray(profile.cvAudit?.issues) &&
+    Array.isArray(profile.cvAudit?.strengths);
+  const hasSavedRefinement =
+    typeof profile.cvRefinement?.refinedCv === "string" &&
+    Array.isArray(profile.cvRefinement?.changes);
+
   return GetProfileResponse.parse({
     id: profile._id.toString(),
     userId: profile.userId,
     cvText: profile.cvText ?? null,
     cvUpdatedAt: profile.cvUpdatedAt?.toISOString() ?? null,
-    cvAudit: profile.cvAudit
+    cvAudit: hasSavedAudit
       ? {
           score: profile.cvAudit.score,
           issues: profile.cvAudit.issues,
           strengths: profile.cvAudit.strengths,
-          generatedAt: profile.cvAudit.generatedAt.toISOString(),
+          generatedAt: formatPersistedDate(
+            profile.cvAudit.generatedAt,
+            fallbackGeneratedAt,
+          ),
         }
       : undefined,
-    cvRefinement: profile.cvRefinement
+    cvRefinement: hasSavedRefinement
       ? {
           jobTitle: profile.cvRefinement.jobTitle ?? null,
-          jobDescription: profile.cvRefinement.jobDescription,
+          jobDescription: profile.cvRefinement.jobDescription ?? "",
           refinedCv: profile.cvRefinement.refinedCv,
           changes: profile.cvRefinement.changes,
-          generatedAt: profile.cvRefinement.generatedAt.toISOString(),
+          generatedAt: formatPersistedDate(
+            profile.cvRefinement.generatedAt,
+            fallbackGeneratedAt,
+          ),
         }
       : undefined,
     preferences: profile.preferences,
