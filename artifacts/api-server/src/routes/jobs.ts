@@ -8,6 +8,18 @@ import { MatchAnalysis } from "../models/MatchAnalysis";
 import { analyzeJobMatch } from "../lib/gemini";
 import { checkRateLimit } from "../lib/rateLimit";
 import { logger } from "../lib/logger";
+import {
+  AnalyzeJobMatchParams,
+  AnalyzeJobMatchResponse,
+  GetJobParams,
+  GetJobResponse,
+  GetJobStatsResponse,
+  GetMatchedJobsQueryParams,
+  GetMatchedJobsResponse,
+  ListJobsQueryParams,
+  ListJobsResponse,
+} from "@workspace/api-zod";
+import { sendInternalServerError, sendValidationError } from "../lib/http";
 
 const router = Router();
 
@@ -39,6 +51,12 @@ router.get("/jobs", requireAuth, async (req, res) => {
   try {
     await connectMongo();
 
+    const parsed = ListJobsQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+
     const {
       sector,
       category,
@@ -49,9 +67,9 @@ router.get("/jobs", requireAuth, async (req, res) => {
       deadlineWithin,
       minMatchScore,
       search,
-      page = "1",
-      limit = "20",
-    } = req.query as Record<string, string>;
+      page = 1,
+      limit = 20,
+    } = parsed.data;
 
     // Build $and array — all constraints compose safely
     const andClauses: any[] = [];
@@ -135,20 +153,19 @@ router.get("/jobs", requireAuth, async (req, res) => {
     }
 
     // minMatchScore: filter by cached match analysis scores for this user
-    if (minMatchScore) {
-      const minScore = parseInt(minMatchScore);
-      if (!isNaN(minScore) && minScore > 0) {
+    if (minMatchScore !== undefined) {
+      if (minMatchScore > 0) {
         const userId = (req as any).userId as string;
         const highScoreJobIds = await MatchAnalysis.find({
           userId,
-          matchScore: { $gte: minScore },
+          matchScore: { $gte: minMatchScore },
         }).distinct("jobId");
         andClauses.push({ _id: { $in: highScoreJobIds } });
       }
     }
 
-    const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const pageNum = page;
+    const limitNum = limit;
     const skip = (pageNum - 1) * limitNum;
 
     const [jobs, total] = await Promise.all([
@@ -156,15 +173,14 @@ router.get("/jobs", requireAuth, async (req, res) => {
       Job.countDocuments(filter),
     ]);
 
-    res.json({
+    res.json(ListJobsResponse.parse({
       jobs: jobs.map((j) => formatJob(j)),
       total,
       page: pageNum,
       limit: limitNum,
-    });
+    }));
   } catch (err) {
-    logger.error({ err }, "listJobs error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "listJobs error");
   }
 });
 
@@ -173,12 +189,17 @@ router.get("/jobs/matched", requireAuth, async (req, res) => {
   try {
     await connectMongo();
     const userId = (req as any).userId as string;
-    const limitNum = Math.min(20, parseInt((req.query.limit as string) ?? "10"));
+    const parsed = GetMatchedJobsQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+    const limitNum = parsed.data.limit ?? 10;
 
     const profile = await Profile.findOne({ userId });
 
     if (!profile?.cvEmbedding?.length) {
-      res.json({ jobs: [], hasCV: false });
+      res.json(GetMatchedJobsResponse.parse({ jobs: [], hasCV: false }));
       return;
     }
 
@@ -217,7 +238,7 @@ router.get("/jobs/matched", requireAuth, async (req, res) => {
         matchScore: Math.round((r.vectorScore ?? 0) * 100),
       }));
 
-      res.json({ jobs, hasCV: true });
+      res.json(GetMatchedJobsResponse.parse({ jobs, hasCV: true }));
     } catch (vectorErr: any) {
       // Vector search index may not be set up yet — fall back to recent jobs
       logger.warn(
@@ -230,14 +251,13 @@ router.get("/jobs/matched", requireAuth, async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(limitNum);
 
-      res.json({
+      res.json(GetMatchedJobsResponse.parse({
         jobs: jobs.map((j) => ({ job: formatJob(j), matchScore: 0 })),
         hasCV: true,
-      });
+      }));
     }
   } catch (err) {
-    logger.error({ err }, "getMatchedJobs error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "getMatchedJobs error");
   }
 });
 
@@ -268,17 +288,16 @@ router.get("/jobs/stats", requireAuth, async (req, res) => {
       }),
     ]);
 
-    res.json({
+    res.json(GetJobStatsResponse.parse({
       total,
       bySector: bySector.map((s) => ({
         sector: s._id ?? "other",
         count: s.count,
       })),
       recentCount,
-    });
+    }));
   } catch (err) {
-    logger.error({ err }, "getJobStats error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "getJobStats error");
   }
 });
 
@@ -286,7 +305,12 @@ router.get("/jobs/stats", requireAuth, async (req, res) => {
 router.get("/jobs/:id", requireAuth, async (req, res) => {
   try {
     await connectMongo();
-    const id = req.params.id as string;
+    const parsed = GetJobParams.safeParse(req.params);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+    const id = parsed.data.id;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(404).json({ error: "Job not found" });
@@ -299,10 +323,9 @@ router.get("/jobs/:id", requireAuth, async (req, res) => {
       return;
     }
 
-    res.json(formatJob(job));
+    res.json(GetJobResponse.parse(formatJob(job)));
   } catch (err) {
-    logger.error({ err }, "getJob error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "getJob error");
   }
 });
 
@@ -311,7 +334,12 @@ router.get("/jobs/:id/analyze", requireAuth, async (req, res) => {
   try {
     await connectMongo();
     const userId = (req as any).userId as string;
-    const id = req.params.id as string;
+    const parsed = AnalyzeJobMatchParams.safeParse(req.params);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+    const id = parsed.data.id;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(404).json({ error: "Job not found" });
@@ -325,14 +353,14 @@ router.get("/jobs/:id/analyze", requireAuth, async (req, res) => {
     });
 
     if (cached) {
-      res.json({
+      res.json(AnalyzeJobMatchResponse.parse({
         jobId: id,
         matchScore: cached.matchScore,
         strengths: cached.strengths,
         gaps: cached.gaps,
         suggestions: cached.suggestions,
         cachedAt: cached.cachedAt.toISOString(),
-      });
+      }));
       return;
     }
 
@@ -381,17 +409,16 @@ router.get("/jobs/:id/analyze", requireAuth, async (req, res) => {
       { upsert: true },
     );
 
-    res.json({
+    res.json(AnalyzeJobMatchResponse.parse({
       jobId: id,
       matchScore: analysis.matchScore,
       strengths: analysis.strengths,
       gaps: analysis.gaps,
       suggestions: analysis.suggestions,
       cachedAt: new Date().toISOString(),
-    });
+    }));
   } catch (err) {
-    logger.error({ err }, "analyzeJobMatch error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "analyzeJobMatch error");
   }
 });
 

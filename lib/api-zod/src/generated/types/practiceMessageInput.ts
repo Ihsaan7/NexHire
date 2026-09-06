@@ -13,7 +13,10 @@ export interface PracticeMessageInput {
   jobTitle?: string;
   jobDescription?: string;
   topic?: string;
+  /** @minItems 1 */
   history: PracticeHistoryMessage[];
+  /** @minLength 1 */
   answer: string;
+  /** @minimum 1 */
   questionNumber: number;
 }

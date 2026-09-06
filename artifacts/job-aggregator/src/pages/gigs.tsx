@@ -6,8 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useListGigs, useTriggerGigSync } from "@workspace/api-client-react";
+import {
+  useListGigs,
+  useTriggerGigSync,
+  type ListGigsSort,
+} from "@workspace/api-client-react";
 import { formatDistanceToNow } from "date-fns";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 const TASK_TYPES = [
   { id: "data-entry", label: "Data Entry" },
@@ -175,7 +180,7 @@ export default function Gigs() {
   const [taskType, setTaskType] = useState("all");
   const [payModel, setPayModel] = useState("all");
   const [difficulty, setDifficulty] = useState("all");
-  const [sort, setSort] = useState("value");
+  const [sort, setSort] = useState<ListGigsSort>("value");
   const [showLowTrust, setShowLowTrust] = useState(false);
   const [page, setPage] = useState(1);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
@@ -188,8 +193,8 @@ export default function Gigs() {
       onSuccess: () => {
         setSyncMsg("Sync started — gigs will appear in ~2 min. Refresh the page then.");
       },
-      onError: () => {
-        setSyncMsg("Sync failed. Try again.");
+      onError: (error) => {
+        setSyncMsg(`Sync failed. ${getApiErrorMessage(error, "Try again.")}`);
       },
     });
   };
@@ -200,8 +205,8 @@ export default function Gigs() {
     difficulty: difficulty !== "all" ? difficulty : undefined,
     sort,
     showLowTrust: showLowTrust ? "true" : undefined,
-    page: String(page),
-    limit: "24",
+    page,
+    limit: 24,
   });
 
   const gigs = data?.gigs ?? [];
@@ -267,7 +272,7 @@ export default function Gigs() {
             <div className="space-y-3">
               <div>
                 <Label className="font-mono text-[10px] uppercase text-muted-foreground mb-1.5 block">Sort by</Label>
-                <Select value={sort} onValueChange={(v) => { setSort(v); setPage(1); }}>
+                <Select value={sort} onValueChange={(v) => { setSort(v as ListGigsSort); setPage(1); }}>
                   <SelectTrigger className="rounded-none h-8 text-xs font-mono">
                     <SelectValue />
                   </SelectTrigger>

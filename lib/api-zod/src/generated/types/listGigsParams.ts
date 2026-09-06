@@ -5,14 +5,27 @@
  * Pakistani Job Aggregator API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListGigsShowLowTrust } from './listGigsShowLowTrust';
+import type { ListGigsSort } from './listGigsSort';
 
 export type ListGigsParams = {
 taskType?: string;
 payModel?: string;
 difficulty?: string;
-minLegitScore?: string;
-showLowTrust?: string;
-sort?: string;
-page?: string;
-limit?: string;
+/**
+ * @minimum 0
+ * @maximum 100
+ */
+minLegitScore?: number;
+showLowTrust?: ListGigsShowLowTrust;
+sort?: ListGigsSort;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
 };

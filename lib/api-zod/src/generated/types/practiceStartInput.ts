@@ -10,6 +10,8 @@ import type { PracticeMode } from './practiceMode';
 export interface PracticeStartInput {
   mode: PracticeMode;
   jobTitle?: string;
+  /** @minLength 1 */
   jobDescription?: string;
+  /** @minLength 1 */
   topic?: string;
 }

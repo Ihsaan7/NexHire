@@ -10,5 +10,9 @@ export interface UserPreferences {
   sectors?: string[];
   locations?: string[];
   experienceLevel?: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
   minMatchScore?: number;
 }

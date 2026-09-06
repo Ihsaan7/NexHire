@@ -7,6 +7,7 @@
  */
 
 export interface MatchAnalysis {
+  /** @minLength 1 */
   jobId: string;
   matchScore: number;
   strengths: string[];

@@ -18,6 +18,7 @@ import {
   Zap, Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 
@@ -131,16 +132,16 @@ export default function CV() {
   const auditCv = useAuditCv({
     mutation: {
       onSuccess: (data) => setAudit(data),
-      onError: () => {
-        toast({ title: "Audit failed", description: "Try again.", variant: "destructive" });
+      onError: (error) => {
+        toast({ title: "Audit failed", description: getApiErrorMessage(error, "Try again."), variant: "destructive" });
       },
     },
   });
   const refineCv = useRefineCv({
     mutation: {
       onSuccess: (data) => setRefined(data),
-      onError: () => {
-        toast({ title: "Refine failed", description: "Try again.", variant: "destructive" });
+      onError: (error) => {
+        toast({ title: "Refine failed", description: getApiErrorMessage(error, "Try again."), variant: "destructive" });
       },
     },
   });
@@ -164,7 +165,11 @@ export default function CV() {
     }
     uploadCv.mutate({ data: { file } }, {
       onSuccess: () => { toast({ title: "CV uploaded successfully", description: "Your data has been extracted." }); refetchProfile(); },
-      onError: () => toast({ title: "Upload failed", description: "Something went wrong.", variant: "destructive" }),
+      onError: (error) => toast({
+        title: "Upload failed",
+        description: getApiErrorMessage(error, "Something went wrong."),
+        variant: "destructive",
+      }),
     });
   };
 

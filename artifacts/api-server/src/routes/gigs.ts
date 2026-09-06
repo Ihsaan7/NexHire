@@ -5,6 +5,8 @@ import { Gig } from "../models/Gig";
 import { getUsdToPkr, calcValueScore } from "../lib/exchangeRate";
 import { logger } from "../lib/logger";
 import { runGigSync } from "./sync-gigs";
+import { ListGigsQueryParams, ListGigsResponse } from "@workspace/api-zod";
+import { sendInternalServerError, sendValidationError } from "../lib/http";
 
 const router = Router();
 
@@ -63,6 +65,12 @@ router.get("/gigs", requireAuth, async (req, res) => {
   try {
     await connectMongo();
 
+    const parsed = ListGigsQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+
     const {
       taskType,
       payModel,
@@ -70,12 +78,12 @@ router.get("/gigs", requireAuth, async (req, res) => {
       minLegitScore,
       showLowTrust,
       sort = "value",
-      page = "1",
-      limit = "20",
-    } = req.query as Record<string, string>;
+      page = 1,
+      limit = 20,
+    } = parsed.data;
 
-    const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
+    const pageNum = page;
+    const limitNum = limit;
 
     const filter: Record<string, any> = {};
 
@@ -87,8 +95,7 @@ router.get("/gigs", requireAuth, async (req, res) => {
     ];
 
     if (minLegitScore) {
-      const min = parseInt(minLegitScore);
-      filter.legitScore = { $gte: min };
+      filter.legitScore = { $gte: minLegitScore };
     }
 
     // Prune gigs older than 45 days
@@ -139,10 +146,9 @@ router.get("/gigs", requireAuth, async (req, res) => {
 
     const usdRate = usdToPkr;
 
-    res.json({ gigs, total, page: pageNum, limit: limitNum, usdToPkr: usdRate });
+    res.json(ListGigsResponse.parse({ gigs, total, page: pageNum, limit: limitNum, usdToPkr: usdRate }));
   } catch (err) {
-    logger.error({ err }, "listGigs error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "listGigs error");
   }
 });
 

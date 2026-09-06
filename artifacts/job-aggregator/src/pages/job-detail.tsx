@@ -14,6 +14,7 @@ import { AnimatedScore } from "@/components/animated-score";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 export default function JobDetail() {
   const { id } = useParams();
@@ -45,14 +46,24 @@ export default function JobDetail() {
         onSuccess: () => {
           toast({ title: "Removed from tracker", description: "Job removed successfully." });
           queryClient.invalidateQueries({ queryKey: getListSavedJobsQueryKey() });
-        }
+         },
+         onError: (error) => toast({
+           title: "Could not remove job",
+           description: getApiErrorMessage(error, "Try again."),
+           variant: "destructive",
+         }),
       });
     } else {
       saveJobMutation.mutate({ data: { jobId: id!, status: 'saved' } }, {
         onSuccess: () => {
           toast({ title: "Saved to tracker", description: "Job added to your pipeline." });
           queryClient.invalidateQueries({ queryKey: getListSavedJobsQueryKey() });
-        }
+         },
+         onError: (error) => toast({
+           title: "Could not save job",
+           description: getApiErrorMessage(error, "Try again."),
+           variant: "destructive",
+         }),
       });
     }
   };

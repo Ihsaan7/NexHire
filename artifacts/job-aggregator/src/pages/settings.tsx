@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { Save } from "lucide-react";
 
 const SECTORS = [
@@ -52,8 +53,12 @@ export default function Settings() {
       onSuccess: () => {
         toast({ title: "Preferences saved", description: "Your terminal has been updated." });
       },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to save preferences.", variant: "destructive" });
+      onError: (error) => {
+        toast({
+          title: "Error",
+          description: getApiErrorMessage(error, "Failed to save preferences."),
+          variant: "destructive",
+        });
       }
     });
   };

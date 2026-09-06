@@ -5,6 +5,17 @@ import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
 import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini";
 import { logger } from "../lib/logger";
+import {
+  AuditCvResponse,
+  GetCvSuggestionsResponse,
+  GetProfileResponse,
+  RefineCvBody,
+  RefineCvResponse,
+  UpdateProfileBody,
+  UpdateProfileResponse,
+  UploadCvResponse,
+} from "@workspace/api-zod";
+import { sendInternalServerError, sendValidationError } from "../lib/http";
 
 // Use memory storage — never write CV to disk
 const upload = multer({
@@ -25,6 +36,18 @@ const upload = multer({
 
 const router = Router();
 
+function formatProfile(profile: any) {
+  return GetProfileResponse.parse({
+    id: profile._id.toString(),
+    userId: profile.userId,
+    cvText: profile.cvText ?? null,
+    cvUpdatedAt: profile.cvUpdatedAt?.toISOString() ?? null,
+    preferences: profile.preferences,
+    createdAt: profile.createdAt.toISOString(),
+    updatedAt: profile.updatedAt.toISOString(),
+  });
+}
+
 // GET /api/profile
 router.get("/profile", requireAuth, async (req, res) => {
   try {
@@ -37,18 +60,9 @@ router.get("/profile", requireAuth, async (req, res) => {
       profile = await Profile.create({ userId });
     }
 
-    res.json({
-      id: profile._id.toString(),
-      userId: profile.userId,
-      cvText: profile.cvText ?? null,
-      cvUpdatedAt: profile.cvUpdatedAt?.toISOString() ?? null,
-      preferences: profile.preferences,
-      createdAt: profile.createdAt.toISOString(),
-      updatedAt: profile.updatedAt.toISOString(),
-    });
+    res.json(formatProfile(profile));
   } catch (err) {
-    logger.error({ err }, "getProfile error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "getProfile error");
   }
 });
 
@@ -57,7 +71,12 @@ router.patch("/profile", requireAuth, async (req, res) => {
   try {
     await connectMongo();
     const userId = (req as any).userId as string;
-    const { preferences } = req.body;
+    const parsed = UpdateProfileBody.safeParse(req.body);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+    const { preferences } = parsed.data;
 
     const profile = await Profile.findOneAndUpdate(
       { userId },
@@ -65,18 +84,9 @@ router.patch("/profile", requireAuth, async (req, res) => {
       { new: true, upsert: true },
     );
 
-    res.json({
-      id: profile._id.toString(),
-      userId: profile.userId,
-      cvText: profile.cvText ?? null,
-      cvUpdatedAt: profile.cvUpdatedAt?.toISOString() ?? null,
-      preferences: profile.preferences,
-      createdAt: profile.createdAt.toISOString(),
-      updatedAt: profile.updatedAt.toISOString(),
-    });
+    res.json(UpdateProfileResponse.parse(formatProfile(profile)));
   } catch (err) {
-    logger.error({ err }, "updateProfile error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "updateProfile error");
   }
 });
 
@@ -128,14 +138,13 @@ router.post(
       // Do NOT log cvText
       logger.info({ userId, cvTextLength: cvText.length }, "CV uploaded");
 
-      res.json({
+      res.json(UploadCvResponse.parse({
         success: true,
         cvTextLength: cvText.length,
         cvUpdatedAt: cvUpdatedAt.toISOString(),
-      });
+      }));
     } catch (err) {
-      logger.error({ err }, "uploadCv error");
-      res.status(500).json({ error: "Internal server error" });
+      sendInternalServerError(req, res, err, "uploadCv error");
     }
   },
 );
@@ -151,10 +160,9 @@ router.post("/profile/cv/audit", requireAuth, async (req, res) => {
       return;
     }
     const audit = await auditCvPakistan(profile.cvText);
-    res.json(audit);
+    res.json(AuditCvResponse.parse(audit));
   } catch (err) {
-    logger.error({ err }, "cvAudit error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "cvAudit error");
   }
 });
 
@@ -163,7 +171,12 @@ router.post("/profile/cv/refine", requireAuth, async (req, res) => {
   try {
     await connectMongo();
     const userId = (req as any).userId as string;
-    const { jobTitle, jobDescription } = req.body;
+    const parsed = RefineCvBody.safeParse(req.body);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+    const { jobTitle, jobDescription } = parsed.data;
     if (!jobDescription?.trim()) {
       res.status(400).json({ error: "jobDescription is required" });
       return;
@@ -174,10 +187,9 @@ router.post("/profile/cv/refine", requireAuth, async (req, res) => {
       return;
     }
     const result = await refineCvForJob(profile.cvText, jobTitle || "the role", jobDescription);
-    res.json(result);
+    res.json(RefineCvResponse.parse(result));
   } catch (err) {
-    logger.error({ err }, "cvRefine error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "cvRefine error");
   }
 });
 
@@ -195,13 +207,12 @@ router.get("/profile/cv/suggestions", requireAuth, async (req, res) => {
 
     const suggestions = await generateCvSuggestions(profile.cvText);
 
-    res.json({
+    res.json(GetCvSuggestionsResponse.parse({
       suggestions,
       generatedAt: new Date().toISOString(),
-    });
+    }));
   } catch (err) {
-    logger.error({ err }, "getCvSuggestions error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "getCvSuggestions error");
   }
 });
 

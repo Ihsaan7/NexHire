@@ -19,6 +19,11 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get current user's profile
  */
+export const getProfileResponsePreferencesMinMatchScoreMin = 0;
+export const getProfileResponsePreferencesMinMatchScoreMax = 100;
+
+
+
 export const GetProfileResponse = zod.object({
   "id": zod.string(),
   "userId": zod.string(),
@@ -28,7 +33,7 @@ export const GetProfileResponse = zod.object({
   "sectors": zod.array(zod.string()).optional(),
   "locations": zod.array(zod.string()).optional(),
   "experienceLevel": zod.string().optional(),
-  "minMatchScore": zod.number().optional()
+  "minMatchScore": zod.number().min(getProfileResponsePreferencesMinMatchScoreMin).max(getProfileResponsePreferencesMinMatchScoreMax).optional()
 }).optional(),
   "createdAt": zod.string().optional(),
   "updatedAt": zod.string().optional()
@@ -38,14 +43,24 @@ export const GetProfileResponse = zod.object({
 /**
  * @summary Update user preferences
  */
+export const updateProfileBodyPreferencesMinMatchScoreMin = 0;
+export const updateProfileBodyPreferencesMinMatchScoreMax = 100;
+
+
+
 export const UpdateProfileBody = zod.object({
   "preferences": zod.object({
   "sectors": zod.array(zod.string()).optional(),
   "locations": zod.array(zod.string()).optional(),
   "experienceLevel": zod.string().optional(),
-  "minMatchScore": zod.number().optional()
+  "minMatchScore": zod.number().min(updateProfileBodyPreferencesMinMatchScoreMin).max(updateProfileBodyPreferencesMinMatchScoreMax).optional()
 }).optional()
 })
+
+export const updateProfileResponsePreferencesMinMatchScoreMin = 0;
+export const updateProfileResponsePreferencesMinMatchScoreMax = 100;
+
+
 
 export const UpdateProfileResponse = zod.object({
   "id": zod.string(),
@@ -56,7 +71,7 @@ export const UpdateProfileResponse = zod.object({
   "sectors": zod.array(zod.string()).optional(),
   "locations": zod.array(zod.string()).optional(),
   "experienceLevel": zod.string().optional(),
-  "minMatchScore": zod.number().optional()
+  "minMatchScore": zod.number().min(updateProfileResponsePreferencesMinMatchScoreMin).max(updateProfileResponsePreferencesMinMatchScoreMax).optional()
 }).optional(),
   "createdAt": zod.string().optional(),
   "updatedAt": zod.string().optional()
@@ -104,9 +119,12 @@ export const AuditCvResponse = zod.object({
 /**
  * @summary Refine the current user's CV for a specific job
  */
+
+
+
 export const RefineCvBody = zod.object({
   "jobTitle": zod.string().optional(),
-  "jobDescription": zod.string()
+  "jobDescription": zod.string().min(1)
 })
 
 export const RefineCvResponse = zod.object({
@@ -118,11 +136,15 @@ export const RefineCvResponse = zod.object({
 /**
  * @summary Start an AI interview or skill practice session
  */
+
+
+
+
 export const StartPracticeSessionBody = zod.object({
   "mode": zod.enum(['cv', 'job', 'custom']),
   "jobTitle": zod.string().optional(),
-  "jobDescription": zod.string().optional(),
-  "topic": zod.string().optional()
+  "jobDescription": zod.string().min(1).optional(),
+  "topic": zod.string().min(1).optional()
 })
 
 export const StartPracticeSessionResponse = zod.object({
@@ -135,6 +157,11 @@ export const StartPracticeSessionResponse = zod.object({
 /**
  * @summary Submit an answer and receive AI feedback or the next question
  */
+
+
+
+
+
 export const SendPracticeMessageBody = zod.object({
   "mode": zod.enum(['cv', 'job', 'custom']),
   "jobTitle": zod.string().optional(),
@@ -143,9 +170,9 @@ export const SendPracticeMessageBody = zod.object({
   "history": zod.array(zod.object({
   "role": zod.enum(['ai', 'user']),
   "content": zod.string()
-})),
-  "answer": zod.string(),
-  "questionNumber": zod.number()
+})).min(1),
+  "answer": zod.string().min(1),
+  "questionNumber": zod.number().min(1)
 })
 
 export const SendPracticeMessageResponse = zod.object({
@@ -161,18 +188,26 @@ export const SendPracticeMessageResponse = zod.object({
 /**
  * @summary List jobs with filters
  */
+export const listJobsQueryMinMatchScoreMin = 0;
+export const listJobsQueryMinMatchScoreMax = 100;
+
+
+export const listJobsQueryLimitMax = 50;
+
+
+
 export const ListJobsQueryParams = zod.object({
   "sector": zod.coerce.string().optional(),
   "category": zod.coerce.string().optional(),
   "location": zod.coerce.string().optional(),
   "experienceLevel": zod.coerce.string().optional(),
   "jobType": zod.coerce.string().optional(),
-  "postedWithin": zod.coerce.string().optional().describe('today | week | month'),
-  "deadlineWithin": zod.coerce.string().optional().describe('3days | week | month'),
-  "minMatchScore": zod.coerce.number().optional(),
+  "postedWithin": zod.enum(['today', 'week', 'month']).optional().describe('today | week | month'),
+  "deadlineWithin": zod.enum(['3days', 'week', 'month']).optional().describe('3days | week | month'),
+  "minMatchScore": zod.coerce.number().min(listJobsQueryMinMatchScoreMin).max(listJobsQueryMinMatchScoreMax).optional(),
   "search": zod.coerce.string().optional(),
-  "page": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().optional()
+  "page": zod.coerce.number().min(1).optional(),
+  "limit": zod.coerce.number().min(1).max(listJobsQueryLimitMax).optional()
 })
 
 export const ListJobsResponse = zod.object({
@@ -205,8 +240,12 @@ export const ListJobsResponse = zod.object({
 /**
  * @summary Get top AI-matched jobs for the current user's CV
  */
+export const getMatchedJobsQueryLimitMax = 20;
+
+
+
 export const GetMatchedJobsQueryParams = zod.object({
-  "limit": zod.coerce.number().optional()
+  "limit": zod.coerce.number().min(1).max(getMatchedJobsQueryLimitMax).optional()
 })
 
 export const GetMatchedJobsResponse = zod.object({
@@ -286,8 +325,11 @@ export const AnalyzeJobMatchParams = zod.object({
   "id": zod.coerce.string()
 })
 
+
+
+
 export const AnalyzeJobMatchResponse = zod.object({
-  "jobId": zod.string(),
+  "jobId": zod.string().min(1),
   "matchScore": zod.number(),
   "strengths": zod.array(zod.string()),
   "gaps": zod.array(zod.string()),
@@ -351,7 +393,7 @@ export const UpdateSavedJobParams = zod.object({
 export const UpdateSavedJobBody = zod.object({
   "status": zod.enum(['saved', 'applied', 'interview', 'rejected', 'offer']).optional(),
   "notes": zod.string().optional(),
-  "appliedAt": zod.string().optional()
+  "appliedAt": zod.coerce.date().optional()
 })
 
 export const UpdateSavedJobResponse = zod.object({
@@ -396,15 +438,23 @@ export const DeleteSavedJobParams = zod.object({
 /**
  * @summary List side-income gigs with filters and value scoring
  */
+export const listGigsQueryMinLegitScoreMin = 0;
+export const listGigsQueryMinLegitScoreMax = 100;
+
+
+export const listGigsQueryLimitMax = 50;
+
+
+
 export const ListGigsQueryParams = zod.object({
   "taskType": zod.coerce.string().optional(),
   "payModel": zod.coerce.string().optional(),
   "difficulty": zod.coerce.string().optional(),
-  "minLegitScore": zod.coerce.string().optional(),
-  "showLowTrust": zod.coerce.string().optional(),
-  "sort": zod.coerce.string().optional(),
-  "page": zod.coerce.string().optional(),
-  "limit": zod.coerce.string().optional()
+  "minLegitScore": zod.coerce.number().min(listGigsQueryMinLegitScoreMin).max(listGigsQueryMinLegitScoreMax).optional(),
+  "showLowTrust": zod.enum(['true', 'false']).optional(),
+  "sort": zod.enum(['value', 'newest', 'pay', 'legit']).optional(),
+  "page": zod.coerce.number().min(1).optional(),
+  "limit": zod.coerce.number().min(1).max(listGigsQueryLimitMax).optional()
 })
 
 export const ListGigsResponse = zod.object({

@@ -3,7 +3,13 @@ import { requireAuth } from "./auth";
 import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
 import { startPracticeSession, continuePracticeSession } from "../lib/gemini";
-import { logger } from "../lib/logger";
+import {
+  SendPracticeMessageBody,
+  SendPracticeMessageResponse,
+  StartPracticeSessionBody,
+  StartPracticeSessionResponse,
+} from "@workspace/api-zod";
+import { sendInternalServerError, sendValidationError } from "../lib/http";
 
 const router = Router();
 
@@ -12,12 +18,13 @@ router.post("/practice/start", requireAuth, async (req, res) => {
   try {
     await connectMongo();
     const userId = (req as any).userId as string;
-    const { mode, jobTitle, jobDescription, topic } = req.body;
-
-    if (!mode || !["cv", "job", "custom"].includes(mode)) {
-      res.status(400).json({ error: "mode must be 'cv', 'job', or 'custom'" });
+    const parsed = StartPracticeSessionBody.safeParse(req.body);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
       return;
     }
+    const { mode, jobTitle, jobDescription, topic } = parsed.data;
+
     if (mode === "job" && !jobDescription?.trim()) {
       res.status(400).json({ error: "jobDescription is required for job mode" });
       return;
@@ -38,10 +45,9 @@ router.post("/practice/start", requireAuth, async (req, res) => {
     }
 
     const result = await startPracticeSession({ mode, cvText, jobTitle, jobDescription, topic });
-    res.json({ ...result, questionNumber: 1 });
+    res.json(StartPracticeSessionResponse.parse({ ...result, questionNumber: 1 }));
   } catch (err) {
-    logger.error({ err }, "practiceStart error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "practiceStart error");
   }
 });
 
@@ -50,7 +56,12 @@ router.post("/practice/message", requireAuth, async (req, res) => {
   try {
     await connectMongo();
     const userId = (req as any).userId as string;
-    const { mode, jobTitle, jobDescription, topic, history, answer, questionNumber } = req.body;
+    const parsed = SendPracticeMessageBody.safeParse(req.body);
+    if (!parsed.success) {
+      sendValidationError(req, res, parsed.error);
+      return;
+    }
+    const { mode, jobTitle, jobDescription, topic, history, answer, questionNumber } = parsed.data;
 
     if (!answer?.trim()) {
       res.status(400).json({ error: "answer is required" });
@@ -71,13 +82,15 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       topic,
       history: history || [],
       userAnswer: answer,
-      questionNumber: questionNumber || 1,
+      questionNumber,
     });
 
-    res.json({ ...result, questionNumber: (questionNumber || 1) + 1 });
+    res.json(SendPracticeMessageResponse.parse({
+      ...result,
+      questionNumber: questionNumber + 1,
+    }));
   } catch (err) {
-    logger.error({ err }, "practiceMessage error");
-    res.status(500).json({ error: "Internal server error" });
+    sendInternalServerError(req, res, err, "practiceMessage error");
   }
 });
 

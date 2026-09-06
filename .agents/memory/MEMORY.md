@@ -2,3 +2,4 @@
 - [Job data sources](job-sources.md) — Adzuna does NOT support Pakistan (pk); switched to Remotive + Arbeitnow (free, no auth)
 - [Atlas vector search index](atlas-vector-index.md) — job_embedding_index created programmatically; 3072 dims, cosine; embeds from gemini-embedding-001
 - [Gigs feature architecture](gigs-feature.md) — Side Income gigs are a separate Gig model/collection, never mixed with Jobs; value scoring computed at query time not stored.
+- [API validation and generated schemas](api-validation.md) — update OpenAPI constraints before codegen; confirm whether generated exports are runtime parsers or types only

@@ -21,6 +21,10 @@ export interface UserPreferences {
   sectors?: string[];
   locations?: string[];
   experienceLevel?: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
   minMatchScore?: number;
 }
 
@@ -75,6 +79,7 @@ export interface CvAuditResult {
 
 export interface CvRefineInput {
   jobTitle?: string;
+  /** @minLength 1 */
   jobDescription: string;
 }
 
@@ -108,7 +113,9 @@ export interface PracticeHistoryMessage {
 export interface PracticeStartInput {
   mode: PracticeMode;
   jobTitle?: string;
+  /** @minLength 1 */
   jobDescription?: string;
+  /** @minLength 1 */
   topic?: string;
 }
 
@@ -123,8 +130,11 @@ export interface PracticeMessageInput {
   jobTitle?: string;
   jobDescription?: string;
   topic?: string;
+  /** @minItems 1 */
   history: PracticeHistoryMessage[];
+  /** @minLength 1 */
   answer: string;
+  /** @minimum 1 */
   questionNumber: number;
 }
 
@@ -200,6 +210,7 @@ export interface JobStats {
 }
 
 export interface MatchAnalysis {
+  /** @minLength 1 */
   jobId: string;
   matchScore: number;
   strengths: string[];
@@ -330,18 +341,51 @@ jobType?: string;
 /**
  * today | week | month
  */
-postedWithin?: string;
+postedWithin?: ListJobsPostedWithin;
 /**
  * 3days | week | month
  */
-deadlineWithin?: string;
+deadlineWithin?: ListJobsDeadlineWithin;
+/**
+ * @minimum 0
+ * @maximum 100
+ */
 minMatchScore?: number;
 search?: string;
+/**
+ * @minimum 1
+ */
 page?: number;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
 limit?: number;
 };
 
+export type ListJobsPostedWithin = typeof ListJobsPostedWithin[keyof typeof ListJobsPostedWithin];
+
+
+export const ListJobsPostedWithin = {
+  today: 'today',
+  week: 'week',
+  month: 'month',
+} as const;
+
+export type ListJobsDeadlineWithin = typeof ListJobsDeadlineWithin[keyof typeof ListJobsDeadlineWithin];
+
+
+export const ListJobsDeadlineWithin = {
+  '3days': '3days',
+  week: 'week',
+  month: 'month',
+} as const;
+
 export type GetMatchedJobsParams = {
+/**
+ * @minimum 1
+ * @maximum 20
+ */
 limit?: number;
 };
 
@@ -349,10 +393,39 @@ export type ListGigsParams = {
 taskType?: string;
 payModel?: string;
 difficulty?: string;
-minLegitScore?: string;
-showLowTrust?: string;
-sort?: string;
-page?: string;
-limit?: string;
+/**
+ * @minimum 0
+ * @maximum 100
+ */
+minLegitScore?: number;
+showLowTrust?: ListGigsShowLowTrust;
+sort?: ListGigsSort;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
 };
+
+export type ListGigsShowLowTrust = typeof ListGigsShowLowTrust[keyof typeof ListGigsShowLowTrust];
+
+
+export const ListGigsShowLowTrust = {
+  true: 'true',
+  false: 'false',
+} as const;
+
+export type ListGigsSort = typeof ListGigsSort[keyof typeof ListGigsSort];
+
+
+export const ListGigsSort = {
+  value: 'value',
+  newest: 'newest',
+  pay: 'pay',
+  legit: 'legit',
+} as const;
 

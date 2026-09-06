@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 const COLUMNS: { id: SavedJobStatus; label: string; color: string }[] = [
   { id: "saved", label: "Saved", color: "bg-zinc-500" },
@@ -41,6 +42,11 @@ function TrackerCard({ savedJob }: { savedJob: any }) {
   const handleUpdateStatus = (status: SavedJobStatus) => {
     updateStatus.mutate({ id: savedJob.id, data: { status } }, {
       onSuccess: invalidate,
+      onError: (error) => toast({
+        title: "Could not update status",
+        description: getApiErrorMessage(error, "Try again."),
+        variant: "destructive",
+      }),
     });
   };
 
@@ -51,6 +57,11 @@ function TrackerCard({ savedJob }: { savedJob: any }) {
         invalidate();
         toast({ title: "Notes saved" });
       },
+      onError: (error) => toast({
+        title: "Could not save notes",
+        description: getApiErrorMessage(error, "Try again."),
+        variant: "destructive",
+      }),
     });
   };
 
@@ -60,6 +71,11 @@ function TrackerCard({ savedJob }: { savedJob: any }) {
         invalidate();
         toast({ title: "Removed from tracker" });
       },
+      onError: (error) => toast({
+        title: "Could not remove job",
+        description: getApiErrorMessage(error, "Try again."),
+        variant: "destructive",
+      }),
     });
   };
 

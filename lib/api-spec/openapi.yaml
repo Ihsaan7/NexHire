@@ -235,15 +235,19 @@ paths:
           description: today | week | month
           schema:
             type: string
+            enum: [today, week, month]
         - name: deadlineWithin
           in: query
           description: 3days | week | month
           schema:
             type: string
+            enum: [3days, week, month]
         - name: minMatchScore
           in: query
           schema:
             type: number
+            minimum: 0
+            maximum: 100
         - name: search
           in: query
           schema:
@@ -252,10 +256,13 @@ paths:
           in: query
           schema:
             type: integer
+            minimum: 1
         - name: limit
           in: query
           schema:
             type: integer
+            minimum: 1
+            maximum: 50
       responses:
         "200":
           description: Job list
@@ -274,6 +281,8 @@ paths:
           in: query
           schema:
             type: integer
+            minimum: 1
+            maximum: 20
       responses:
         "200":
           description: Matched jobs with scores
@@ -474,23 +483,30 @@ paths:
         - name: minLegitScore
           in: query
           schema:
-            type: string
+            type: integer
+            minimum: 0
+            maximum: 100
         - name: showLowTrust
           in: query
           schema:
             type: string
+            enum: ["true", "false"]
         - name: sort
           in: query
           schema:
             type: string
+            enum: [value, newest, pay, legit]
         - name: page
           in: query
           schema:
-            type: string
+            type: integer
+            minimum: 1
         - name: limit
           in: query
           schema:
-            type: string
+            type: integer
+            minimum: 1
+            maximum: 50
       responses:
         "200":
           description: Gig list with value scoring
@@ -560,6 +576,8 @@ components:
           type: string
         minMatchScore:
           type: number
+          minimum: 0
+          maximum: 100
 
     Profile:
       type: object
@@ -658,6 +676,7 @@ components:
           type: string
         jobDescription:
           type: string
+          minLength: 1
       required:
         - jobDescription
 
@@ -699,8 +718,10 @@ components:
           type: string
         jobDescription:
           type: string
+          minLength: 1
         topic:
           type: string
+          minLength: 1
       required:
         - mode
 
@@ -733,10 +754,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PracticeHistoryMessage"
+          minItems: 1
         answer:
           type: string
+          minLength: 1
         questionNumber:
           type: integer
+          minimum: 1
       required:
         - mode
         - history
@@ -886,6 +910,7 @@ components:
       properties:
         jobId:
           type: string
+          minLength: 1
         matchScore:
           type: integer
         strengths:
@@ -960,6 +985,7 @@ components:
           type: string
         appliedAt:
           type: string
+          format: date-time
 
     MessageResponse:
       type: object

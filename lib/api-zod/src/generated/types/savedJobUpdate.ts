@@ -10,5 +10,5 @@ import type { SavedJobUpdateStatus } from './savedJobUpdateStatus';
 export interface SavedJobUpdate {
   status?: SavedJobUpdateStatus;
   notes?: string;
-  appliedAt?: string;
+  appliedAt?: Date;
 }

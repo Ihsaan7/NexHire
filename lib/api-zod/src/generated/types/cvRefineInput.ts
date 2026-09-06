@@ -8,5 +8,6 @@
 
 export interface CvRefineInput {
   jobTitle?: string;
+  /** @minLength 1 */
   jobDescription: string;
 }

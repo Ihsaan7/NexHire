@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   FileText, Briefcase, MessageSquare, RefreshCw, Send,
   Star, ChevronRight, RotateCcw, CheckCircle2, Trophy,
@@ -109,8 +110,12 @@ export default function Practice() {
       setQuestionNumber(1);
       setSessionActive(true);
       },
-      onError: () => {
-        toast({ title: "Failed to start session", variant: "destructive" });
+      onError: (error) => {
+        toast({
+          title: "Failed to start session",
+          description: getApiErrorMessage(error, "Try again."),
+          variant: "destructive",
+        });
       },
     });
   };
@@ -157,8 +162,12 @@ export default function Practice() {
         setQuestionNumber(data.questionNumber);
       }
       },
-      onError: () => {
-        toast({ title: "Error getting response", variant: "destructive" });
+      onError: (error) => {
+        toast({
+          title: "Error getting response",
+          description: getApiErrorMessage(error, "Try again."),
+          variant: "destructive",
+        });
       },
     });
   };

@@ -5,6 +5,8 @@
  * Pakistani Job Aggregator API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListJobsDeadlineWithin } from './listJobsDeadlineWithin';
+import type { ListJobsPostedWithin } from './listJobsPostedWithin';
 
 export type ListJobsParams = {
 sector?: string;
@@ -15,13 +17,24 @@ jobType?: string;
 /**
  * today | week | month
  */
-postedWithin?: string;
+postedWithin?: ListJobsPostedWithin;
 /**
  * 3days | week | month
  */
-deadlineWithin?: string;
+deadlineWithin?: ListJobsDeadlineWithin;
+/**
+ * @minimum 0
+ * @maximum 100
+ */
 minMatchScore?: number;
 search?: string;
+/**
+ * @minimum 1
+ */
 page?: number;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
 limit?: number;
 };

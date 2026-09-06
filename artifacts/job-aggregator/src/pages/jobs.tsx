@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListJobs, useGetProfile } from "@workspace/api-client-react";
+import { useListJobs, useGetProfile, type ListJobsPostedWithin } from "@workspace/api-client-react";
 import { JobCard } from "@/components/job-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -124,7 +124,7 @@ export default function Jobs() {
   const [location, setLocation] = useState<string>("all");
   const [jobType, setJobType] = useState<string>("all");
   const [experienceLevel, setExperienceLevel] = useState<string>("all");
-  const [postedWithin, setPostedWithin] = useState<string>("all");
+  const [postedWithin, setPostedWithin] = useState<ListJobsPostedWithin | "all">("all");
   const [minMatchScore, setMinMatchScore] = useState<number>(0);
 
   const activeSector = sector === "all" ? "" : sector;
@@ -319,7 +319,10 @@ export default function Jobs() {
             <label className="font-mono text-xs uppercase text-muted-foreground">
               Posted Within
             </label>
-            <Select value={postedWithin} onValueChange={setPostedWithin}>
+            <Select
+              value={postedWithin}
+              onValueChange={(value) => setPostedWithin(value as ListJobsPostedWithin | "all")}
+            >
               <SelectTrigger
                 className="rounded-none font-mono text-xs"
                 data-testid="select-posted-within"
