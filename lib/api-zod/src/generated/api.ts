@@ -188,6 +188,7 @@ export const StartPracticeSessionBody = zod.object({
 })
 
 export const StartPracticeSessionResponse = zod.object({
+  "sessionId": zod.string(),
   "intro": zod.string(),
   "firstQuestion": zod.string(),
   "questionNumber": zod.number()
@@ -195,8 +196,35 @@ export const StartPracticeSessionResponse = zod.object({
 
 
 /**
+ * @summary Get the current user's latest practice session
+ */
+export const GetLatestPracticeSessionResponse = zod.union([zod.object({
+  "sessionId": zod.string(),
+  "mode": zod.enum(['cv', 'job', 'custom']),
+  "jobTitle": zod.string().nullish(),
+  "jobDescription": zod.string().nullish(),
+  "topic": zod.string().nullish(),
+  "messages": zod.array(zod.object({
+  "role": zod.enum(['ai', 'user']),
+  "content": zod.string(),
+  "feedback": zod.string().nullish(),
+  "score": zod.number().nullish()
+})),
+  "currentQuestion": zod.string(),
+  "questionNumber": zod.number(),
+  "isComplete": zod.boolean(),
+  "summary": zod.string(),
+  "avgScore": zod.number(),
+  "status": zod.enum(['active', 'completed', 'abandoned']),
+  "startedAt": zod.string(),
+  "updatedAt": zod.string()
+}),zod.null()])
+
+
+/**
  * @summary Submit an answer and receive AI feedback or the next question
  */
+
 
 
 
@@ -212,10 +240,12 @@ export const SendPracticeMessageBody = zod.object({
   "content": zod.string()
 })).min(1),
   "answer": zod.string().min(1),
+  "sessionId": zod.string().min(1),
   "questionNumber": zod.number().min(1)
 })
 
 export const SendPracticeMessageResponse = zod.object({
+  "sessionId": zod.string(),
   "feedback": zod.string(),
   "score": zod.number(),
   "nextQuestion": zod.string().optional(),

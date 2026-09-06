@@ -7,6 +7,7 @@
  */
 
 export interface PracticeStartResult {
+  sessionId: string;
   intro: string;
   firstQuestion: string;
   questionNumber: number;

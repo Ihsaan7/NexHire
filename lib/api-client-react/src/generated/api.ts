@@ -40,6 +40,7 @@ import type {
   MessageResponse,
   PracticeMessageInput,
   PracticeMessageResult,
+  PracticeSession,
   PracticeStartInput,
   PracticeStartResult,
   Profile,
@@ -647,6 +648,83 @@ export const useStartPracticeSession = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getStartPracticeSessionMutationOptions(options));
     }
+
+export const getGetLatestPracticeSessionUrl = () => {
+
+
+
+
+  return `/api/practice/session`
+}
+
+/**
+ * @summary Get the current user's latest practice session
+ */
+export const getLatestPracticeSession = async ( options?: RequestInit): Promise<PracticeSession | null> => {
+
+  return customFetch<PracticeSession | null>(getGetLatestPracticeSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLatestPracticeSessionQueryKey = () => {
+    return [
+    `/api/practice/session`
+    ] as const;
+    }
+
+
+export const getGetLatestPracticeSessionQueryOptions = <TData = Awaited<ReturnType<typeof getLatestPracticeSession>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestPracticeSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLatestPracticeSessionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLatestPracticeSession>>> = ({ signal }) => getLatestPracticeSession({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLatestPracticeSession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLatestPracticeSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getLatestPracticeSession>>>
+export type GetLatestPracticeSessionQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the current user's latest practice session
+ */
+
+export function useGetLatestPracticeSession<TData = Awaited<ReturnType<typeof getLatestPracticeSession>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestPracticeSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLatestPracticeSessionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getSendPracticeMessageUrl = () => {
 

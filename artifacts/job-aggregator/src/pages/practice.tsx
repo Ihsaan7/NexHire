@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   useStartPracticeSession,
   useSendPracticeMessage,
+  useGetLatestPracticeSession,
   type PracticeMessageInput,
   type PracticeStartInput,
 } from "@workspace/api-client-react";
@@ -68,6 +69,7 @@ export default function Practice() {
 
   // Session state
   const [sessionActive, setSessionActive] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionContext, setSessionContext] = useState<{ mode: Mode; jobTitle?: string; jobDescription?: string; topic?: string } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState("");
@@ -79,8 +81,38 @@ export default function Practice() {
 
   const startPractice = useStartPracticeSession();
   const sendPractice = useSendPracticeMessage();
+  const { data: persistedSession } = useGetLatestPracticeSession();
+  const hydratedPersistedSession = useRef(false);
   const starting = startPractice.isPending;
   const submitting = sendPractice.isPending;
+
+  useEffect(() => {
+    if (hydratedPersistedSession.current || !persistedSession) return;
+    hydratedPersistedSession.current = true;
+    setSessionId(persistedSession.sessionId);
+    setSelectedMode(persistedSession.mode);
+    setJobTitle(persistedSession.jobTitle ?? "");
+    setJobDescription(persistedSession.jobDescription ?? "");
+    setTopic(persistedSession.topic ?? "");
+    setSessionContext({
+      mode: persistedSession.mode,
+      jobTitle: persistedSession.jobTitle ?? undefined,
+      jobDescription: persistedSession.jobDescription ?? undefined,
+      topic: persistedSession.topic ?? undefined,
+    });
+    setMessages(persistedSession.messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+      feedback: message.feedback ?? undefined,
+      score: message.score ?? undefined,
+    })));
+    setCurrentQuestion(persistedSession.currentQuestion);
+    setQuestionNumber(persistedSession.questionNumber);
+    setIsComplete(persistedSession.isComplete);
+    setSummary(persistedSession.summary);
+    setAvgScore(persistedSession.avgScore);
+    setSessionActive(true);
+  }, [persistedSession]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,6 +136,7 @@ export default function Practice() {
 
     startPractice.mutate({ data: body }, {
       onSuccess: (data) => {
+      setSessionId(data.sessionId);
       setSessionContext({ mode: selectedMode, jobTitle, jobDescription, topic });
       setMessages([{ role: "ai", content: data.intro }]);
       setCurrentQuestion(data.firstQuestion);
@@ -122,6 +155,10 @@ export default function Practice() {
 
   const submitAnswer = async () => {
     if (!userAnswer.trim() || !sessionContext) return;
+    if (!sessionId) {
+      toast({ title: "Practice session unavailable", description: "Start a new session and try again.", variant: "destructive" });
+      return;
+    }
     const answer = userAnswer.trim();
     setUserAnswer("");
     // Add user answer to messages
@@ -134,6 +171,7 @@ export default function Practice() {
     setCurrentQuestion("");
 
     const body: PracticeMessageInput = {
+      sessionId,
       mode: sessionContext.mode,
       jobTitle: sessionContext.jobTitle,
       jobDescription: sessionContext.jobDescription,

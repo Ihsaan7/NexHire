@@ -133,6 +133,7 @@ export interface PracticeStartInput {
 }
 
 export interface PracticeStartResult {
+  sessionId: string;
   intro: string;
   firstQuestion: string;
   questionNumber: number;
@@ -147,17 +148,66 @@ export interface PracticeMessageInput {
   history: PracticeHistoryMessage[];
   /** @minLength 1 */
   answer: string;
+  /** @minLength 1 */
+  sessionId: string;
   /** @minimum 1 */
   questionNumber: number;
 }
 
 export interface PracticeMessageResult {
+  sessionId: string;
   feedback: string;
   score: number;
   nextQuestion?: string;
   isComplete: boolean;
   summary?: string;
   questionNumber: number;
+}
+
+export type PracticeSessionMessageRole = typeof PracticeSessionMessageRole[keyof typeof PracticeSessionMessageRole];
+
+
+export const PracticeSessionMessageRole = {
+  ai: 'ai',
+  user: 'user',
+} as const;
+
+export interface PracticeSessionMessage {
+  role: PracticeSessionMessageRole;
+  content: string;
+  /** @nullable */
+  feedback?: string | null;
+  /** @nullable */
+  score?: number | null;
+}
+
+export type PracticeSessionStatus = typeof PracticeSessionStatus[keyof typeof PracticeSessionStatus];
+
+
+export const PracticeSessionStatus = {
+  active: 'active',
+  completed: 'completed',
+  abandoned: 'abandoned',
+} as const;
+
+export interface PracticeSession {
+  sessionId: string;
+  mode: PracticeMode;
+  /** @nullable */
+  jobTitle?: string | null;
+  /** @nullable */
+  jobDescription?: string | null;
+  /** @nullable */
+  topic?: string | null;
+  messages: PracticeSessionMessage[];
+  currentQuestion: string;
+  questionNumber: number;
+  isComplete: boolean;
+  summary: string;
+  avgScore: number;
+  status: PracticeSessionStatus;
+  startedAt: string;
+  updatedAt: string;
 }
 
 export interface Job {

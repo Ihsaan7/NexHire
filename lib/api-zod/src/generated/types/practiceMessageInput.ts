@@ -17,6 +17,8 @@ export interface PracticeMessageInput {
   history: PracticeHistoryMessage[];
   /** @minLength 1 */
   answer: string;
+  /** @minLength 1 */
+  sessionId: string;
   /** @minimum 1 */
   questionNumber: number;
 }

@@ -7,6 +7,7 @@
  */
 
 export interface PracticeMessageResult {
+  sessionId: string;
   feedback: string;
   score: number;
   nextQuestion?: string;

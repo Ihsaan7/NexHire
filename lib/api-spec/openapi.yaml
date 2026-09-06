@@ -179,6 +179,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /practice/session:
+    get:
+      operationId: getLatestPracticeSession
+      tags: [practice]
+      summary: Get the current user's latest practice session
+      responses:
+        "200":
+          description: Latest practice session, or null when none exists
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/PracticeSession"
+                  - type: "null"
+
   /practice/message:
     post:
       operationId: sendPracticeMessage
@@ -752,6 +767,8 @@ components:
     PracticeStartResult:
       type: object
       properties:
+        sessionId:
+          type: string
         intro:
           type: string
         firstQuestion:
@@ -759,6 +776,7 @@ components:
         questionNumber:
           type: integer
       required:
+        - sessionId
         - intro
         - firstQuestion
         - questionNumber
@@ -782,6 +800,9 @@ components:
         answer:
           type: string
           minLength: 1
+        sessionId:
+          type: string
+          minLength: 1
         questionNumber:
           type: integer
           minimum: 1
@@ -789,11 +810,14 @@ components:
         - mode
         - history
         - answer
+        - sessionId
         - questionNumber
 
     PracticeMessageResult:
       type: object
       properties:
+        sessionId:
+          type: string
         feedback:
           type: string
         score:
@@ -807,10 +831,74 @@ components:
         questionNumber:
           type: integer
       required:
+        - sessionId
         - feedback
         - score
         - isComplete
         - questionNumber
+
+    PracticeSessionMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [ai, user]
+        content:
+          type: string
+        feedback:
+          type: ["string", "null"]
+        score:
+          type: ["number", "null"]
+      required:
+        - role
+        - content
+
+    PracticeSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        mode:
+          $ref: "#/components/schemas/PracticeMode"
+        jobTitle:
+          type: ["string", "null"]
+        jobDescription:
+          type: ["string", "null"]
+        topic:
+          type: ["string", "null"]
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeSessionMessage"
+        currentQuestion:
+          type: string
+        questionNumber:
+          type: integer
+        isComplete:
+          type: boolean
+        summary:
+          type: string
+        avgScore:
+          type: number
+        status:
+          type: string
+          enum: [active, completed, abandoned]
+        startedAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - sessionId
+        - mode
+        - messages
+        - currentQuestion
+        - questionNumber
+        - isComplete
+        - summary
+        - avgScore
+        - status
+        - startedAt
+        - updatedAt
 
     Job:
       type: object
