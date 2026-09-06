@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useAuth } from "@clerk/react";
+import {
+  useStartPracticeSession,
+  useSendPracticeMessage,
+  type PracticeMessageInput,
+  type PracticeStartInput,
+} from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -51,9 +56,7 @@ function ScoreBar({ score }: { score: number }) {
 
 // ── Main component ──────────────────────────────────────────────────────────────
 export default function Practice() {
-  const { getToken } = useAuth();
   const { toast } = useToast();
-  const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Setup state
@@ -61,7 +64,6 @@ export default function Practice() {
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [topic, setTopic] = useState("");
-  const [starting, setStarting] = useState(false);
 
   // Session state
   const [sessionActive, setSessionActive] = useState(false);
@@ -70,10 +72,14 @@ export default function Practice() {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [questionNumber, setQuestionNumber] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [summary, setSummary] = useState("");
   const [avgScore, setAvgScore] = useState(0);
+
+  const startPractice = useStartPracticeSession();
+  const sendPractice = useSendPracticeMessage();
+  const starting = startPractice.isPending;
+  const submitting = sendPractice.isPending;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,41 +94,31 @@ export default function Practice() {
       toast({ title: "Please enter a topic", variant: "destructive" }); return;
     }
 
-    setStarting(true);
-    try {
-      const token = await getToken();
-      const body: Record<string, string> = { mode: selectedMode };
-      if (selectedMode === "job") { body.jobTitle = jobTitle; body.jobDescription = jobDescription; }
-      if (selectedMode === "custom") body.topic = topic;
+    const body: PracticeStartInput = { mode: selectedMode };
+    if (selectedMode === "job") {
+      body.jobTitle = jobTitle;
+      body.jobDescription = jobDescription;
+    }
+    if (selectedMode === "custom") body.topic = topic;
 
-      const resp = await fetch(`${base}/api/practice/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Failed to start session" }));
-        toast({ title: err.error || "Failed to start", variant: "destructive" }); return;
-      }
-      const data = await resp.json();
+    startPractice.mutate({ data: body }, {
+      onSuccess: (data) => {
       setSessionContext({ mode: selectedMode, jobTitle, jobDescription, topic });
       setMessages([{ role: "ai", content: data.intro }]);
       setCurrentQuestion(data.firstQuestion);
       setQuestionNumber(1);
       setSessionActive(true);
-    } catch {
-      toast({ title: "Network error", variant: "destructive" });
-    } finally {
-      setStarting(false);
-    }
+      },
+      onError: () => {
+        toast({ title: "Failed to start session", variant: "destructive" });
+      },
+    });
   };
 
   const submitAnswer = async () => {
     if (!userAnswer.trim() || !sessionContext) return;
     const answer = userAnswer.trim();
     setUserAnswer("");
-    setSubmitting(true);
-
     // Add user answer to messages
     const updatedMessages: ChatMessage[] = [
       ...messages,
@@ -132,28 +128,19 @@ export default function Practice() {
     setMessages(updatedMessages);
     setCurrentQuestion("");
 
-    try {
-      const token = await getToken();
-      const history = updatedMessages.map((m) => ({ role: m.role, content: m.content }));
-      const body: Record<string, unknown> = {
-        mode: sessionContext.mode,
-        jobTitle: sessionContext.jobTitle,
-        jobDescription: sessionContext.jobDescription,
-        topic: sessionContext.topic,
-        history,
-        answer,
-        questionNumber,
-      };
-
-      const resp = await fetch(`${base}/api/practice/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) throw new Error("Failed");
-      const data = await resp.json();
+    const body: PracticeMessageInput = {
+      mode: sessionContext.mode,
+      jobTitle: sessionContext.jobTitle,
+      jobDescription: sessionContext.jobDescription,
+      topic: sessionContext.topic,
+      history: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+      answer,
+      questionNumber,
+    };
 
       // Add feedback to the last user message
+    sendPractice.mutate({ data: body }, {
+      onSuccess: (data) => {
       const withFeedback: ChatMessage[] = updatedMessages.map((m, i) =>
         i === updatedMessages.length - 1 ? { ...m, feedback: data.feedback, score: data.score } : m
       );
@@ -169,11 +156,11 @@ export default function Practice() {
         setCurrentQuestion(data.nextQuestion || "");
         setQuestionNumber(data.questionNumber);
       }
-    } catch {
-      toast({ title: "Error getting response", variant: "destructive" });
-    } finally {
-      setSubmitting(false);
-    }
+      },
+      onError: () => {
+        toast({ title: "Error getting response", variant: "destructive" });
+      },
+    });
   };
 
   const resetSession = () => {

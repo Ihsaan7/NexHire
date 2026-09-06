@@ -20,7 +20,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CvAuditResult,
   CvFileInput,
+  CvRefineInput,
+  CvRefineResult,
   CvSuggestions,
   CvUploadResult,
   ErrorResponse,
@@ -35,12 +38,15 @@ import type {
   MatchAnalysis,
   MatchedJobsResponse,
   MessageResponse,
+  PracticeMessageInput,
+  PracticeMessageResult,
+  PracticeStartInput,
+  PracticeStartResult,
   Profile,
   ProfileUpdate,
   SavedJob,
   SavedJobInput,
-  SavedJobUpdate,
-  SyncResult
+  SavedJobUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -429,6 +435,289 @@ export function useGetCvSuggestions<TData = Awaited<ReturnType<typeof getCvSugge
 
 
 
+
+export const getAuditCvUrl = () => {
+
+
+
+
+  return `/api/profile/cv/audit`
+}
+
+/**
+ * @summary Audit the current user's CV against Pakistani CV standards
+ */
+export const auditCv = async ( options?: RequestInit): Promise<CvAuditResult> => {
+
+  return customFetch<CvAuditResult>(getAuditCvUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAuditCvMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof auditCv>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof auditCv>>, TError,void, TContext> => {
+
+const mutationKey = ['auditCv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof auditCv>>, void> = () => {
+
+
+          return  auditCv(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuditCvMutationResult = NonNullable<Awaited<ReturnType<typeof auditCv>>>
+
+    export type AuditCvMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Audit the current user's CV against Pakistani CV standards
+ */
+export const useAuditCv = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof auditCv>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof auditCv>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAuditCvMutationOptions(options));
+    }
+
+export const getRefineCvUrl = () => {
+
+
+
+
+  return `/api/profile/cv/refine`
+}
+
+/**
+ * @summary Refine the current user's CV for a specific job
+ */
+export const refineCv = async (cvRefineInput: CvRefineInput, options?: RequestInit): Promise<CvRefineResult> => {
+
+  return customFetch<CvRefineResult>(getRefineCvUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cvRefineInput,)
+  }
+);}
+
+
+
+
+export const getRefineCvMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refineCv>>, TError,{data: BodyType<CvRefineInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refineCv>>, TError,{data: BodyType<CvRefineInput>}, TContext> => {
+
+const mutationKey = ['refineCv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refineCv>>, {data: BodyType<CvRefineInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  refineCv(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefineCvMutationResult = NonNullable<Awaited<ReturnType<typeof refineCv>>>
+    export type RefineCvMutationBody = BodyType<CvRefineInput>
+    export type RefineCvMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Refine the current user's CV for a specific job
+ */
+export const useRefineCv = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refineCv>>, TError,{data: BodyType<CvRefineInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refineCv>>,
+        TError,
+        {data: BodyType<CvRefineInput>},
+        TContext
+      > => {
+      return useMutation(getRefineCvMutationOptions(options));
+    }
+
+export const getStartPracticeSessionUrl = () => {
+
+
+
+
+  return `/api/practice/start`
+}
+
+/**
+ * @summary Start an AI interview or skill practice session
+ */
+export const startPracticeSession = async (practiceStartInput: PracticeStartInput, options?: RequestInit): Promise<PracticeStartResult> => {
+
+  return customFetch<PracticeStartResult>(getStartPracticeSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      practiceStartInput,)
+  }
+);}
+
+
+
+
+export const getStartPracticeSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startPracticeSession>>, TError,{data: BodyType<PracticeStartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startPracticeSession>>, TError,{data: BodyType<PracticeStartInput>}, TContext> => {
+
+const mutationKey = ['startPracticeSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startPracticeSession>>, {data: BodyType<PracticeStartInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  startPracticeSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartPracticeSessionMutationResult = NonNullable<Awaited<ReturnType<typeof startPracticeSession>>>
+    export type StartPracticeSessionMutationBody = BodyType<PracticeStartInput>
+    export type StartPracticeSessionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Start an AI interview or skill practice session
+ */
+export const useStartPracticeSession = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startPracticeSession>>, TError,{data: BodyType<PracticeStartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startPracticeSession>>,
+        TError,
+        {data: BodyType<PracticeStartInput>},
+        TContext
+      > => {
+      return useMutation(getStartPracticeSessionMutationOptions(options));
+    }
+
+export const getSendPracticeMessageUrl = () => {
+
+
+
+
+  return `/api/practice/message`
+}
+
+/**
+ * @summary Submit an answer and receive AI feedback or the next question
+ */
+export const sendPracticeMessage = async (practiceMessageInput: PracticeMessageInput, options?: RequestInit): Promise<PracticeMessageResult> => {
+
+  return customFetch<PracticeMessageResult>(getSendPracticeMessageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      practiceMessageInput,)
+  }
+);}
+
+
+
+
+export const getSendPracticeMessageMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPracticeMessage>>, TError,{data: BodyType<PracticeMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendPracticeMessage>>, TError,{data: BodyType<PracticeMessageInput>}, TContext> => {
+
+const mutationKey = ['sendPracticeMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendPracticeMessage>>, {data: BodyType<PracticeMessageInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendPracticeMessage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendPracticeMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendPracticeMessage>>>
+    export type SendPracticeMessageMutationBody = BodyType<PracticeMessageInput>
+    export type SendPracticeMessageMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Submit an answer and receive AI feedback or the next question
+ */
+export const useSendPracticeMessage = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPracticeMessage>>, TError,{data: BodyType<PracticeMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendPracticeMessage>>,
+        TError,
+        {data: BodyType<PracticeMessageInput>},
+        TContext
+      > => {
+      return useMutation(getSendPracticeMessageMutationOptions(options));
+    }
 
 export const getListJobsUrl = (params?: ListJobsParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -1130,9 +1419,9 @@ export const getSyncAdzunaUrl = () => {
 /**
  * @summary Trigger Adzuna job sync (protected by CRON_SECRET)
  */
-export const syncAdzuna = async ( options?: RequestInit): Promise<SyncResult> => {
+export const syncAdzuna = async ( options?: RequestInit): Promise<MessageResponse> => {
 
-  return customFetch<SyncResult>(getSyncAdzunaUrl(),
+  return customFetch<MessageResponse>(getSyncAdzunaUrl(),
   {
     ...options,
     method: 'POST'
@@ -1342,4 +1631,74 @@ export function useListGigs<TData = Awaited<ReturnType<typeof listGigs>>, TError
 
 
 
+
+export const getTriggerGigSyncUrl = () => {
+
+
+
+
+  return `/api/gigs/sync`
+}
+
+/**
+ * @summary Trigger an authenticated gig sync in the background
+ */
+export const triggerGigSync = async ( options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getTriggerGigSyncUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTriggerGigSyncMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerGigSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof triggerGigSync>>, TError,void, TContext> => {
+
+const mutationKey = ['triggerGigSync'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof triggerGigSync>>, void> = () => {
+
+
+          return  triggerGigSync(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TriggerGigSyncMutationResult = NonNullable<Awaited<ReturnType<typeof triggerGigSync>>>
+
+    export type TriggerGigSyncMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Trigger an authenticated gig sync in the background
+ */
+export const useTriggerGigSync = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerGigSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof triggerGigSync>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTriggerGigSyncMutationOptions(options));
+    }
 

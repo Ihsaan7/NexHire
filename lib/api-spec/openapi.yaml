@@ -19,6 +19,8 @@ tags:
     description: Data ingestion
   - name: gigs
     description: Side-income gig listings
+  - name: practice
+    description: Interview and skill practice
 
 paths:
   /healthz:
@@ -107,6 +109,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CvSuggestions"
+
+  /profile/cv/audit:
+    post:
+      operationId: auditCv
+      tags: [profile]
+      summary: Audit the current user's CV against Pakistani CV standards
+      responses:
+        "200":
+          description: CV audit result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvAuditResult"
+        "400":
+          description: No CV uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /profile/cv/refine:
+    post:
+      operationId: refineCv
+      tags: [profile]
+      summary: Refine the current user's CV for a specific job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CvRefineInput"
+      responses:
+        "200":
+          description: Refined CV result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvRefineResult"
+        "400":
+          description: Missing job description or CV
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /practice/start:
+    post:
+      operationId: startPracticeSession
+      tags: [practice]
+      summary: Start an AI interview or skill practice session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PracticeStartInput"
+      responses:
+        "200":
+          description: Practice session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeStartResult"
+        "400":
+          description: Invalid practice setup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /practice/message:
+    post:
+      operationId: sendPracticeMessage
+      tags: [practice]
+      summary: Submit an answer and receive AI feedback or the next question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PracticeMessageInput"
+      responses:
+        "200":
+          description: Practice feedback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeMessageResult"
+        "400":
+          description: Invalid practice answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /jobs:
     get:
@@ -325,12 +421,12 @@ paths:
       tags: [cron]
       summary: Trigger Adzuna job sync (protected by CRON_SECRET)
       responses:
-        "200":
-          description: Sync result
+        "202":
+          description: Sync started in the background
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SyncResult"
+                $ref: "#/components/schemas/MessageResponse"
         "401":
           description: Unauthorized
           content:
@@ -402,6 +498,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GigListResponse"
+
+  /gigs/sync:
+    post:
+      operationId: triggerGigSync
+      tags: [gigs]
+      summary: Trigger an authenticated gig sync in the background
+      responses:
+        "202":
+          description: Sync started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   schemas:
@@ -499,6 +614,155 @@ components:
       required:
         - suggestions
         - generatedAt
+
+    CvAuditIssue:
+      type: object
+      properties:
+        category:
+          type: string
+        severity:
+          type: string
+          enum: [high, medium, low]
+        problem:
+          type: string
+        correction:
+          type: string
+      required:
+        - category
+        - severity
+        - problem
+        - correction
+
+    CvAuditResult:
+      type: object
+      properties:
+        score:
+          type: number
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/CvAuditIssue"
+        strengths:
+          type: array
+          items:
+            type: string
+      required:
+        - score
+        - issues
+        - strengths
+
+    CvRefineInput:
+      type: object
+      properties:
+        jobTitle:
+          type: string
+        jobDescription:
+          type: string
+      required:
+        - jobDescription
+
+    CvRefineResult:
+      type: object
+      properties:
+        refinedCv:
+          type: string
+        changes:
+          type: array
+          items:
+            type: string
+      required:
+        - refinedCv
+        - changes
+
+    PracticeMode:
+      type: string
+      enum: [cv, job, custom]
+
+    PracticeHistoryMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [ai, user]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    PracticeStartInput:
+      type: object
+      properties:
+        mode:
+          $ref: "#/components/schemas/PracticeMode"
+        jobTitle:
+          type: string
+        jobDescription:
+          type: string
+        topic:
+          type: string
+      required:
+        - mode
+
+    PracticeStartResult:
+      type: object
+      properties:
+        intro:
+          type: string
+        firstQuestion:
+          type: string
+        questionNumber:
+          type: integer
+      required:
+        - intro
+        - firstQuestion
+        - questionNumber
+
+    PracticeMessageInput:
+      type: object
+      properties:
+        mode:
+          $ref: "#/components/schemas/PracticeMode"
+        jobTitle:
+          type: string
+        jobDescription:
+          type: string
+        topic:
+          type: string
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeHistoryMessage"
+        answer:
+          type: string
+        questionNumber:
+          type: integer
+      required:
+        - mode
+        - history
+        - answer
+        - questionNumber
+
+    PracticeMessageResult:
+      type: object
+      properties:
+        feedback:
+          type: string
+        score:
+          type: number
+        nextQuestion:
+          type: string
+        isComplete:
+          type: boolean
+        summary:
+          type: string
+        questionNumber:
+          type: integer
+      required:
+        - feedback
+        - score
+        - isComplete
+        - questionNumber
 
     Job:
       type: object

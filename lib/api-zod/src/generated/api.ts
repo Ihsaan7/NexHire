@@ -87,6 +87,78 @@ export const GetCvSuggestionsResponse = zod.object({
 
 
 /**
+ * @summary Audit the current user's CV against Pakistani CV standards
+ */
+export const AuditCvResponse = zod.object({
+  "score": zod.number(),
+  "issues": zod.array(zod.object({
+  "category": zod.string(),
+  "severity": zod.enum(['high', 'medium', 'low']),
+  "problem": zod.string(),
+  "correction": zod.string()
+})),
+  "strengths": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Refine the current user's CV for a specific job
+ */
+export const RefineCvBody = zod.object({
+  "jobTitle": zod.string().optional(),
+  "jobDescription": zod.string()
+})
+
+export const RefineCvResponse = zod.object({
+  "refinedCv": zod.string(),
+  "changes": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Start an AI interview or skill practice session
+ */
+export const StartPracticeSessionBody = zod.object({
+  "mode": zod.enum(['cv', 'job', 'custom']),
+  "jobTitle": zod.string().optional(),
+  "jobDescription": zod.string().optional(),
+  "topic": zod.string().optional()
+})
+
+export const StartPracticeSessionResponse = zod.object({
+  "intro": zod.string(),
+  "firstQuestion": zod.string(),
+  "questionNumber": zod.number()
+})
+
+
+/**
+ * @summary Submit an answer and receive AI feedback or the next question
+ */
+export const SendPracticeMessageBody = zod.object({
+  "mode": zod.enum(['cv', 'job', 'custom']),
+  "jobTitle": zod.string().optional(),
+  "jobDescription": zod.string().optional(),
+  "topic": zod.string().optional(),
+  "history": zod.array(zod.object({
+  "role": zod.enum(['ai', 'user']),
+  "content": zod.string()
+})),
+  "answer": zod.string(),
+  "questionNumber": zod.number()
+})
+
+export const SendPracticeMessageResponse = zod.object({
+  "feedback": zod.string(),
+  "score": zod.number(),
+  "nextQuestion": zod.string().optional(),
+  "isComplete": zod.boolean(),
+  "summary": zod.string().optional(),
+  "questionNumber": zod.number()
+})
+
+
+/**
  * @summary List jobs with filters
  */
 export const ListJobsQueryParams = zod.object({
@@ -318,18 +390,6 @@ export const UpdateSavedJobResponse = zod.object({
  */
 export const DeleteSavedJobParams = zod.object({
   "id": zod.coerce.string()
-})
-
-
-/**
- * @summary Trigger Adzuna job sync (protected by CRON_SECRET)
- */
-export const SyncAdzunaResponse = zod.object({
-  "inserted": zod.number(),
-  "updated": zod.number(),
-  "deleted": zod.number(),
-  "errors": zod.number(),
-  "message": zod.string()
 })
 
 

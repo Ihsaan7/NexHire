@@ -1,6 +1,14 @@
-import { useGetProfile, useUploadCv, useGetCvSuggestions, getGetCvSuggestionsQueryKey } from "@workspace/api-client-react";
+import {
+  useGetProfile,
+  useUploadCv,
+  useGetCvSuggestions,
+  getGetCvSuggestionsQueryKey,
+  useAuditCv,
+  useRefineCv,
+  type CvAuditResult,
+  type CvRefineResult,
+} from "@workspace/api-client-react";
 import { useState, useCallback } from "react";
-import { useAuth } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -20,9 +28,6 @@ type AuditIssue = {
   problem: string;
   correction: string;
 };
-type AuditResult = { score: number; issues: AuditIssue[]; strengths: string[] };
-type RefineResult = { refinedCv: string; changes: string[] };
-
 // ── Severity badge ─────────────────────────────────────────────────────────────
 function SeverityBadge({ severity }: { severity: AuditIssue["severity"] }) {
   const map = {
@@ -105,8 +110,6 @@ function IssueCard({ issue, index }: { issue: AuditIssue; index: number }) {
 // ── Main component ──────────────────────────────────────────────────────────────
 export default function CV() {
   const { toast } = useToast();
-  const { getToken } = useAuth();
-  const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
   const { data: profile, isLoading: loadingProfile, refetch: refetchProfile } = useGetProfile();
   const { data: suggestions, isLoading: loadingSuggestions } = useGetCvSuggestions({
@@ -118,14 +121,31 @@ export default function CV() {
   const [copied, setCopied] = useState(false);
 
   // ── Audit state ──
-  const [audit, setAudit] = useState<AuditResult | null>(null);
-  const [auditing, setAuditing] = useState(false);
+  const [audit, setAudit] = useState<CvAuditResult | null>(null);
 
   // ── Refine state ──
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [refined, setRefined] = useState<RefineResult | null>(null);
-  const [refining, setRefining] = useState(false);
+  const [refined, setRefined] = useState<CvRefineResult | null>(null);
+
+  const auditCv = useAuditCv({
+    mutation: {
+      onSuccess: (data) => setAudit(data),
+      onError: () => {
+        toast({ title: "Audit failed", description: "Try again.", variant: "destructive" });
+      },
+    },
+  });
+  const refineCv = useRefineCv({
+    mutation: {
+      onSuccess: (data) => setRefined(data),
+      onError: () => {
+        toast({ title: "Refine failed", description: "Try again.", variant: "destructive" });
+      },
+    },
+  });
+  const auditing = auditCv.isPending;
+  const refining = refineCv.isPending;
 
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
@@ -148,43 +168,18 @@ export default function CV() {
     });
   };
 
-  const runAudit = async () => {
-    setAuditing(true); setAudit(null);
-    try {
-      const token = await getToken();
-      const resp = await fetch(`${base}/api/profile/cv/audit`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      setAudit(await resp.json());
-    } catch {
-      toast({ title: "Audit failed", description: "Try again.", variant: "destructive" });
-    } finally {
-      setAuditing(false);
-    }
+  const runAudit = () => {
+    setAudit(null);
+    auditCv.mutate();
   };
 
-  const runRefine = async () => {
+  const runRefine = () => {
     if (!jobDescription.trim()) {
       toast({ title: "Job description required", description: "Paste the job description below.", variant: "destructive" });
       return;
     }
-    setRefining(true); setRefined(null);
-    try {
-      const token = await getToken();
-      const resp = await fetch(`${base}/api/profile/cv/refine`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ jobTitle, jobDescription }),
-      });
-      if (!resp.ok) throw new Error(await resp.text());
-      setRefined(await resp.json());
-    } catch {
-      toast({ title: "Refine failed", description: "Try again.", variant: "destructive" });
-    } finally {
-      setRefining(false);
-    }
+    setRefined(null);
+    refineCv.mutate({ data: { jobTitle, jobDescription } });
   };
 
   const copyRefined = () => {

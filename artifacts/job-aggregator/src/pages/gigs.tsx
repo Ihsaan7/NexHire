@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useListGigs } from "@workspace/api-client-react";
-import { useAuth } from "@clerk/react";
+import { useListGigs, useTriggerGigSync } from "@workspace/api-client-react";
 import { formatDistanceToNow } from "date-fns";
 
 const TASK_TYPES = [
@@ -179,30 +178,20 @@ export default function Gigs() {
   const [sort, setSort] = useState("value");
   const [showLowTrust, setShowLowTrust] = useState(false);
   const [page, setPage] = useState(1);
-  const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const { getToken } = useAuth();
+  const syncGigs = useTriggerGigSync();
+  const syncing = syncGigs.isPending;
 
-  const triggerSync = async () => {
-    setSyncing(true);
+  const triggerSync = () => {
     setSyncMsg(null);
-    try {
-      const token = await getToken();
-      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-      const resp = await fetch(`${base}/api/gigs/sync`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (resp.ok) {
+    syncGigs.mutate(undefined, {
+      onSuccess: () => {
         setSyncMsg("Sync started — gigs will appear in ~2 min. Refresh the page then.");
-      } else {
+      },
+      onError: () => {
         setSyncMsg("Sync failed. Try again.");
-      }
-    } catch {
-      setSyncMsg("Network error. Try again.");
-    } finally {
-      setSyncing(false);
-    }
+      },
+    });
   };
 
   const { data, isLoading, refetch } = useListGigs({

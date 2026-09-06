@@ -6,7 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './cvAuditIssue';
+export * from './cvAuditIssueSeverity';
+export * from './cvAuditResult';
 export * from './cvFileInput';
+export * from './cvRefineInput';
+export * from './cvRefineResult';
 export * from './cvSuggestions';
 export * from './cvUploadResult';
 export * from './errorResponse';
@@ -23,6 +28,13 @@ export * from './matchAnalysis';
 export * from './matchedJob';
 export * from './matchedJobsResponse';
 export * from './messageResponse';
+export * from './practiceHistoryMessage';
+export * from './practiceHistoryMessageRole';
+export * from './practiceMessageInput';
+export * from './practiceMessageResult';
+export * from './practiceMode';
+export * from './practiceStartInput';
+export * from './practiceStartResult';
 export * from './profile';
 export * from './profileUpdate';
 export * from './savedJob';

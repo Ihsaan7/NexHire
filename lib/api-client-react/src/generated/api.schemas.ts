@@ -51,6 +51,92 @@ export interface CvSuggestions {
   generatedAt: string;
 }
 
+export type CvAuditIssueSeverity = typeof CvAuditIssueSeverity[keyof typeof CvAuditIssueSeverity];
+
+
+export const CvAuditIssueSeverity = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+} as const;
+
+export interface CvAuditIssue {
+  category: string;
+  severity: CvAuditIssueSeverity;
+  problem: string;
+  correction: string;
+}
+
+export interface CvAuditResult {
+  score: number;
+  issues: CvAuditIssue[];
+  strengths: string[];
+}
+
+export interface CvRefineInput {
+  jobTitle?: string;
+  jobDescription: string;
+}
+
+export interface CvRefineResult {
+  refinedCv: string;
+  changes: string[];
+}
+
+export type PracticeMode = typeof PracticeMode[keyof typeof PracticeMode];
+
+
+export const PracticeMode = {
+  cv: 'cv',
+  job: 'job',
+  custom: 'custom',
+} as const;
+
+export type PracticeHistoryMessageRole = typeof PracticeHistoryMessageRole[keyof typeof PracticeHistoryMessageRole];
+
+
+export const PracticeHistoryMessageRole = {
+  ai: 'ai',
+  user: 'user',
+} as const;
+
+export interface PracticeHistoryMessage {
+  role: PracticeHistoryMessageRole;
+  content: string;
+}
+
+export interface PracticeStartInput {
+  mode: PracticeMode;
+  jobTitle?: string;
+  jobDescription?: string;
+  topic?: string;
+}
+
+export interface PracticeStartResult {
+  intro: string;
+  firstQuestion: string;
+  questionNumber: number;
+}
+
+export interface PracticeMessageInput {
+  mode: PracticeMode;
+  jobTitle?: string;
+  jobDescription?: string;
+  topic?: string;
+  history: PracticeHistoryMessage[];
+  answer: string;
+  questionNumber: number;
+}
+
+export interface PracticeMessageResult {
+  feedback: string;
+  score: number;
+  nextQuestion?: string;
+  isComplete: boolean;
+  summary?: string;
+  questionNumber: number;
+}
+
 export interface Job {
   id: string;
   source: string;
