@@ -5,6 +5,8 @@
  * Pakistani Job Aggregator API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProfileCvAudit } from './profileCvAudit';
+import type { ProfileCvRefinement } from './profileCvRefinement';
 import type { UserPreferences } from './userPreferences';
 
 export interface Profile {
@@ -14,6 +16,8 @@ export interface Profile {
   cvText?: string | null;
   /** @nullable */
   cvUpdatedAt?: string | null;
+  cvAudit?: ProfileCvAudit;
+  cvRefinement?: ProfileCvRefinement;
   preferences?: UserPreferences;
   createdAt?: string;
   updatedAt?: string;

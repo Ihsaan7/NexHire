@@ -49,7 +49,7 @@ function formatProfile(profile: any) {
           strengths: profile.cvAudit.strengths,
           generatedAt: profile.cvAudit.generatedAt.toISOString(),
         }
-      : null,
+      : undefined,
     cvRefinement: profile.cvRefinement
       ? {
           jobTitle: profile.cvRefinement.jobTitle ?? null,
@@ -58,7 +58,7 @@ function formatProfile(profile: any) {
           changes: profile.cvRefinement.changes,
           generatedAt: profile.cvRefinement.generatedAt.toISOString(),
         }
-      : null,
+      : undefined,
     preferences: profile.preferences,
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString(),

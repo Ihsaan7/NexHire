@@ -29,6 +29,26 @@ export const GetProfileResponse = zod.object({
   "userId": zod.string(),
   "cvText": zod.string().nullish(),
   "cvUpdatedAt": zod.string().nullish(),
+  "cvAudit": zod.object({
+  "score": zod.number(),
+  "issues": zod.array(zod.object({
+  "category": zod.string(),
+  "severity": zod.enum(['high', 'medium', 'low']),
+  "problem": zod.string(),
+  "correction": zod.string()
+})),
+  "strengths": zod.array(zod.string())
+}).and(zod.object({
+  "generatedAt": zod.string()
+})).optional(),
+  "cvRefinement": zod.object({
+  "refinedCv": zod.string(),
+  "changes": zod.array(zod.string())
+}).and(zod.object({
+  "jobTitle": zod.string().nullable(),
+  "jobDescription": zod.string(),
+  "generatedAt": zod.string()
+})).optional(),
   "preferences": zod.object({
   "sectors": zod.array(zod.string()).optional(),
   "locations": zod.array(zod.string()).optional(),
@@ -67,6 +87,26 @@ export const UpdateProfileResponse = zod.object({
   "userId": zod.string(),
   "cvText": zod.string().nullish(),
   "cvUpdatedAt": zod.string().nullish(),
+  "cvAudit": zod.object({
+  "score": zod.number(),
+  "issues": zod.array(zod.object({
+  "category": zod.string(),
+  "severity": zod.enum(['high', 'medium', 'low']),
+  "problem": zod.string(),
+  "correction": zod.string()
+})),
+  "strengths": zod.array(zod.string())
+}).and(zod.object({
+  "generatedAt": zod.string()
+})).optional(),
+  "cvRefinement": zod.object({
+  "refinedCv": zod.string(),
+  "changes": zod.array(zod.string())
+}).and(zod.object({
+  "jobTitle": zod.string().nullable(),
+  "jobDescription": zod.string(),
+  "generatedAt": zod.string()
+})).optional(),
   "preferences": zod.object({
   "sectors": zod.array(zod.string()).optional(),
   "locations": zod.array(zod.string()).optional(),

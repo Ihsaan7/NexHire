@@ -40,6 +40,8 @@ export * from './practiceMode';
 export * from './practiceStartInput';
 export * from './practiceStartResult';
 export * from './profile';
+export * from './profileCvAudit';
+export * from './profileCvRefinement';
 export * from './profileUpdate';
 export * from './savedJob';
 export * from './savedJobInput';

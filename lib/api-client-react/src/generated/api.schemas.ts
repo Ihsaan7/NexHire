@@ -28,33 +28,6 @@ export interface UserPreferences {
   minMatchScore?: number;
 }
 
-export interface Profile {
-  id: string;
-  userId: string;
-  /** @nullable */
-  cvText?: string | null;
-  /** @nullable */
-  cvUpdatedAt?: string | null;
-  preferences?: UserPreferences;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface ProfileUpdate {
-  preferences?: UserPreferences;
-}
-
-export interface CvUploadResult {
-  success: boolean;
-  cvTextLength: number;
-  cvUpdatedAt: string;
-}
-
-export interface CvSuggestions {
-  suggestions: string[];
-  generatedAt: string;
-}
-
 export type CvAuditIssueSeverity = typeof CvAuditIssueSeverity[keyof typeof CvAuditIssueSeverity];
 
 
@@ -77,15 +50,55 @@ export interface CvAuditResult {
   strengths: string[];
 }
 
-export interface CvRefineInput {
-  jobTitle?: string;
-  /** @minLength 1 */
-  jobDescription: string;
-}
+export type ProfileCvAudit = CvAuditResult & {
+  generatedAt: string;
+};
 
 export interface CvRefineResult {
   refinedCv: string;
   changes: string[];
+}
+
+export type ProfileCvRefinement = CvRefineResult & ({
+  /** @nullable */
+  jobTitle: string | null;
+  jobDescription: string;
+  generatedAt: string;
+});
+
+export interface Profile {
+  id: string;
+  userId: string;
+  /** @nullable */
+  cvText?: string | null;
+  /** @nullable */
+  cvUpdatedAt?: string | null;
+  cvAudit?: ProfileCvAudit;
+  cvRefinement?: ProfileCvRefinement;
+  preferences?: UserPreferences;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProfileUpdate {
+  preferences?: UserPreferences;
+}
+
+export interface CvUploadResult {
+  success: boolean;
+  cvTextLength: number;
+  cvUpdatedAt: string;
+}
+
+export interface CvSuggestions {
+  suggestions: string[];
+  generatedAt: string;
+}
+
+export interface CvRefineInput {
+  jobTitle?: string;
+  /** @minLength 1 */
+  jobDescription: string;
 }
 
 export type PracticeMode = typeof PracticeMode[keyof typeof PracticeMode];
