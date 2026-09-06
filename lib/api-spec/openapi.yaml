@@ -590,6 +590,30 @@ components:
           type: ["string", "null"]
         cvUpdatedAt:
           type: ["string", "null"]
+        cvAudit:
+          allOf:
+            - $ref: "#/components/schemas/CvAuditResult"
+            - type: object
+              properties:
+                generatedAt:
+                  type: string
+              required:
+                - generatedAt
+        cvRefinement:
+          allOf:
+            - $ref: "#/components/schemas/CvRefineResult"
+            - type: object
+              properties:
+                jobTitle:
+                  type: ["string", "null"]
+                jobDescription:
+                  type: string
+                generatedAt:
+                  type: string
+              required:
+                - jobTitle
+                - jobDescription
+                - generatedAt
         preferences:
           $ref: "#/components/schemas/UserPreferences"
         createdAt:

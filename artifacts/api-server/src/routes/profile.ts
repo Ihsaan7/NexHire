@@ -42,6 +42,23 @@ function formatProfile(profile: any) {
     userId: profile.userId,
     cvText: profile.cvText ?? null,
     cvUpdatedAt: profile.cvUpdatedAt?.toISOString() ?? null,
+    cvAudit: profile.cvAudit
+      ? {
+          score: profile.cvAudit.score,
+          issues: profile.cvAudit.issues,
+          strengths: profile.cvAudit.strengths,
+          generatedAt: profile.cvAudit.generatedAt.toISOString(),
+        }
+      : null,
+    cvRefinement: profile.cvRefinement
+      ? {
+          jobTitle: profile.cvRefinement.jobTitle ?? null,
+          jobDescription: profile.cvRefinement.jobDescription,
+          refinedCv: profile.cvRefinement.refinedCv,
+          changes: profile.cvRefinement.changes,
+          generatedAt: profile.cvRefinement.generatedAt.toISOString(),
+        }
+      : null,
     preferences: profile.preferences,
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString(),
@@ -131,7 +148,10 @@ router.post(
 
       await Profile.findOneAndUpdate(
         { userId },
-        { $set: { cvText, cvEmbedding, cvUpdatedAt } },
+        {
+          $set: { cvText, cvEmbedding, cvUpdatedAt },
+          $unset: { cvAudit: 1, cvRefinement: 1 },
+        },
         { upsert: true },
       );
 
@@ -160,6 +180,11 @@ router.post("/profile/cv/audit", requireAuth, async (req, res) => {
       return;
     }
     const audit = await auditCvPakistan(profile.cvText);
+    const generatedAt = new Date();
+    await Profile.updateOne(
+      { userId },
+      { $set: { cvAudit: { ...audit, generatedAt } } },
+    );
     res.json(AuditCvResponse.parse(audit));
   } catch (err) {
     sendInternalServerError(req, res, err, "cvAudit error");
@@ -187,6 +212,19 @@ router.post("/profile/cv/refine", requireAuth, async (req, res) => {
       return;
     }
     const result = await refineCvForJob(profile.cvText, jobTitle || "the role", jobDescription);
+    await Profile.updateOne(
+      { userId },
+      {
+        $set: {
+          cvRefinement: {
+            ...result,
+            jobTitle: jobTitle || null,
+            jobDescription,
+            generatedAt: new Date(),
+          },
+        },
+      },
+    );
     res.json(RefineCvResponse.parse(result));
   } catch (err) {
     sendInternalServerError(req, res, err, "cvRefine error");

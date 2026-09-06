@@ -8,7 +8,7 @@ import {
   type CvAuditResult,
   type CvRefineResult,
 } from "@workspace/api-client-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -128,6 +128,15 @@ export default function CV() {
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [refined, setRefined] = useState<CvRefineResult | null>(null);
+
+  useEffect(() => {
+    setAudit(profile?.cvAudit ?? null);
+    setRefined(profile?.cvRefinement ?? null);
+    if (profile?.cvRefinement) {
+      setJobTitle(profile.cvRefinement.jobTitle ?? "");
+      setJobDescription(profile.cvRefinement.jobDescription);
+    }
+  }, [profile?.cvAudit, profile?.cvRefinement]);
 
   const auditCv = useAuditCv({
     mutation: {

@@ -5,6 +5,24 @@ export interface IProfile extends Document {
   cvText?: string;
   cvEmbedding?: number[];
   cvUpdatedAt?: Date;
+  cvAudit?: {
+    score: number;
+    issues: {
+      category: string;
+      severity: "high" | "medium" | "low";
+      problem: string;
+      correction: string;
+    }[];
+    strengths: string[];
+    generatedAt: Date;
+  };
+  cvRefinement?: {
+    jobTitle: string | null;
+    jobDescription: string;
+    refinedCv: string;
+    changes: string[];
+    generatedAt: Date;
+  };
   preferences: {
     sectors: string[];
     locations: string[];
@@ -21,6 +39,28 @@ const ProfileSchema = new Schema<IProfile>(
     cvText: { type: String },
     cvEmbedding: { type: [Number], default: undefined },
     cvUpdatedAt: { type: Date },
+  cvAudit: {
+    score: { type: Number },
+    issues: {
+      type: [
+        {
+          category: { type: String },
+          severity: { type: String, enum: ["high", "medium", "low"] },
+          problem: { type: String },
+          correction: { type: String },
+        },
+      ],
+    },
+    strengths: { type: [String] },
+    generatedAt: { type: Date },
+  },
+  cvRefinement: {
+    jobTitle: { type: String, default: null },
+    jobDescription: { type: String },
+    refinedCv: { type: String },
+    changes: { type: [String] },
+    generatedAt: { type: Date },
+  },
     preferences: {
       sectors: { type: [String], default: [] },
       locations: { type: [String], default: [] },
