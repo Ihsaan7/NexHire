@@ -556,3 +556,24 @@ export const ListGigsResponse = zod.object({
 })
 
 
+/**
+ * @summary Get current job and gig synchronization status
+ */
+export const GetSyncStatusResponse = zod.object({
+  "jobs": zod.object({
+  "status": zod.enum(['idle', 'running', 'succeeded', 'failed']),
+  "startedAt": zod.coerce.date().nullable(),
+  "completedAt": zod.coerce.date().nullable(),
+  "lastSuccessAt": zod.coerce.date().nullable(),
+  "message": zod.string().nullable()
+}),
+  "gigs": zod.object({
+  "status": zod.enum(['idle', 'running', 'succeeded', 'failed']),
+  "startedAt": zod.coerce.date().nullable(),
+  "completedAt": zod.coerce.date().nullable(),
+  "lastSuccessAt": zod.coerce.date().nullable(),
+  "message": zod.string().nullable()
+})
+})
+
+

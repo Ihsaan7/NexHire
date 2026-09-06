@@ -47,7 +47,8 @@ import type {
   ProfileUpdate,
   SavedJob,
   SavedJobInput,
-  SavedJobUpdate
+  SavedJobUpdate,
+  SyncStatusResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -132,13 +133,6 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
-
 export const getGetProfileUrl = () => {
 
 
@@ -1779,4 +1773,75 @@ export const useTriggerGigSync = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getTriggerGigSyncMutationOptions(options));
     }
+
+export const getGetSyncStatusUrl = () => {
+
+
+
+
+  return `/api/sync/status`
+}
+
+/**
+ * @summary Get current job and gig synchronization status
+ */
+export const getSyncStatus = async ( options?: RequestInit): Promise<SyncStatusResponse> => {
+
+  return customFetch<SyncStatusResponse>(getGetSyncStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSyncStatusQueryKey = () => {
+    return [
+    `/api/sync/status`
+    ] as const;
+    }
+
+
+export const getGetSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSyncStatus>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSyncStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSyncStatus>>> = ({ signal }) => getSyncStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSyncStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSyncStatus>>>
+export type GetSyncStatusQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get current job and gig synchronization status
+ */
+
+export function useGetSyncStatus<TData = Awaited<ReturnType<typeof getSyncStatus>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSyncStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 

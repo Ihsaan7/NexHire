@@ -7,6 +7,7 @@ import cronRouter from "./cron";
 import gigsRouter from "./gigs";
 import syncGigsRouter from "./sync-gigs";
 import practiceRouter from "./practice";
+import syncStatusRouter from "./sync-status";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(cronRouter);
 router.use(gigsRouter);
 router.use(syncGigsRouter);
 router.use(practiceRouter);
+router.use(syncStatusRouter);
 
 export default router;

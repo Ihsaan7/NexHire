@@ -55,4 +55,7 @@ export * from './savedJobUpdate';
 export * from './savedJobUpdateStatus';
 export * from './sectorStat';
 export * from './syncResult';
+export * from './syncStatus';
+export * from './syncStatusResponse';
+export * from './syncStatusStatus';
 export * from './userPreferences';

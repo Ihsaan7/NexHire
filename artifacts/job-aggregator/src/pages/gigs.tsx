@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink, DollarSign, ShieldCheck, AlertTriangle, TrendingUp, SlidersHorizontal, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   useListGigs,
+  useGetSyncStatus,
   useTriggerGigSync,
   type ListGigsSort,
 } from "@workspace/api-client-react";
@@ -183,18 +184,24 @@ export default function Gigs() {
   const [sort, setSort] = useState<ListGigsSort>("value");
   const [showLowTrust, setShowLowTrust] = useState(false);
   const [page, setPage] = useState(1);
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const completedSyncRef = useRef<string | null>(null);
   const syncGigs = useTriggerGigSync();
-  const syncing = syncGigs.isPending;
+  const {
+    data: syncStatusData,
+    refetch: refetchSyncStatus,
+  } = useGetSyncStatus();
+  const gigSyncStatus = syncStatusData?.gigs;
+  const syncing = syncGigs.isPending || gigSyncStatus?.status === "running";
 
   const triggerSync = () => {
-    setSyncMsg(null);
+    setSyncError(null);
     syncGigs.mutate(undefined, {
-      onSuccess: () => {
-        setSyncMsg("Sync started — gigs will appear in ~2 min. Refresh the page then.");
+      onSuccess: async () => {
+        await refetchSyncStatus();
       },
       onError: (error) => {
-        setSyncMsg(`Sync failed. ${getApiErrorMessage(error, "Try again.")}`);
+        setSyncError(`Sync failed. ${getApiErrorMessage(error, "Try again.")}`);
       },
     });
   };
@@ -213,6 +220,31 @@ export default function Gigs() {
   const total = data?.total ?? 0;
   const usdToPkr = data?.usdToPkr ?? 278;
   const hasFilters = taskType !== "all" || payModel !== "all" || difficulty !== "all";
+  const syncMsg =
+    syncError ??
+    (gigSyncStatus?.status !== "idle" ? gigSyncStatus?.message : null);
+
+  useEffect(() => {
+    if (gigSyncStatus?.status !== "running") return;
+
+    const interval = window.setInterval(() => {
+      void refetchSyncStatus();
+    }, 3000);
+
+    return () => window.clearInterval(interval);
+  }, [gigSyncStatus?.status, refetchSyncStatus]);
+
+  useEffect(() => {
+    const completedAt = gigSyncStatus?.completedAt ?? null;
+    if (
+      gigSyncStatus?.status === "succeeded" &&
+      completedAt &&
+      completedSyncRef.current !== completedAt
+    ) {
+      completedSyncRef.current = completedAt;
+      void refetch();
+    }
+  }, [gigSyncStatus?.completedAt, gigSyncStatus?.status, refetch]);
 
   const clearFilters = () => {
     setTaskType("all");
@@ -252,7 +284,13 @@ export default function Gigs() {
         </div>
 
         {syncMsg && (
-          <p className="font-mono text-xs text-primary/80 mt-2 border border-primary/20 px-3 py-2 bg-primary/5">
+          <p
+            className={`font-mono text-xs mt-2 border px-3 py-2 ${
+              gigSyncStatus?.status === "failed" || syncError
+                ? "text-destructive border-destructive/20 bg-destructive/5"
+                : "text-primary/80 border-primary/20 bg-primary/5"
+            }`}
+          >
             {syncMsg}
           </p>
         )}

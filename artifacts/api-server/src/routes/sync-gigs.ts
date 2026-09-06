@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import { connectMongo } from "../lib/mongodb";
 import { Gig } from "../models/Gig";
 import { logger } from "../lib/logger";
+import { beginSync, completeSync, failSync } from "../lib/syncStatus";
 
 const router = Router();
 
@@ -311,7 +312,7 @@ async function fetchWWRGigs(): Promise<number> {
 }
 
 // Exported so gigs.ts can call it from the auth-protected trigger endpoint
-export async function runGigSync() {
+export async function runGigSync(): Promise<{ total: number }> {
   await connectMongo();
 
   const cutoff = new Date();
@@ -332,6 +333,7 @@ export async function runGigSync() {
 
   const total = await Gig.countDocuments();
   logger.info({ total }, "Gig sync complete");
+  return { total };
 }
 
 // POST /api/cron/sync-gigs
@@ -344,12 +346,19 @@ router.post("/cron/sync-gigs", async (req, res) => {
     return;
   }
 
+  if (!beginSync("gigs")) {
+    res.status(202).json({ message: "Gig sync is already running." });
+    return;
+  }
+
   res.status(202).json({ message: "Gig sync started in background." });
 
   (async () => {
     try {
-      await runGigSync();
+      const { total } = await runGigSync();
+      completeSync("gigs", `Gig sync completed. ${total} gigs are available.`);
     } catch (err) {
+      failSync("gigs", "Gig sync failed. Try again.");
       logger.error({ err }, "sync-gigs background error");
     }
   })();

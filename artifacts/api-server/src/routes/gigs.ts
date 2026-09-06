@@ -7,6 +7,7 @@ import { logger } from "../lib/logger";
 import { runGigSync } from "./sync-gigs";
 import { ListGigsQueryParams, ListGigsResponse } from "@workspace/api-zod";
 import { sendInternalServerError, sendValidationError } from "../lib/http";
+import { beginSync, completeSync, failSync } from "../lib/syncStatus";
 
 const router = Router();
 
@@ -50,11 +51,18 @@ function formatGig(g: any, usdToPkr: number) {
 
 // POST /api/gigs/sync — Clerk-auth protected, triggers gig sync in background
 router.post("/gigs/sync", requireAuth, async (req, res) => {
+  if (!beginSync("gigs")) {
+    res.status(202).json({ message: "Gig sync is already running." });
+    return;
+  }
+
   res.status(202).json({ message: "Gig sync started." });
   (async () => {
     try {
-      await runGigSync();
+      const { total } = await runGigSync();
+      completeSync("gigs", `Gig sync completed. ${total} gigs are available.`);
     } catch (err) {
+      failSync("gigs", "Gig sync failed. Try again.");
       logger.error({ err }, "gigs/sync background error");
     }
   })();

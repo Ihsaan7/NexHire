@@ -395,6 +395,29 @@ export interface SyncResult {
   message: string;
 }
 
+export type SyncStatusStatus = typeof SyncStatusStatus[keyof typeof SyncStatusStatus];
+
+
+export const SyncStatusStatus = {
+  idle: 'idle',
+  running: 'running',
+  succeeded: 'succeeded',
+  failed: 'failed',
+} as const;
+
+export interface SyncStatus {
+  status: SyncStatusStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  lastSuccessAt: string | null;
+  message: string | null;
+}
+
+export interface SyncStatusResponse {
+  jobs: SyncStatus;
+  gigs: SyncStatus;
+}
+
 export type ListJobsParams = {
 sector?: string;
 category?: string;

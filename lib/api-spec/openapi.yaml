@@ -549,6 +549,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sync/status:
+    get:
+      operationId: getSyncStatus
+      tags: [cron]
+      summary: Get current job and gig synchronization status
+      responses:
+        "200":
+          description: Current synchronization states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatusResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     CvFileInput:
@@ -1198,3 +1217,42 @@ components:
         - deleted
         - errors
         - message
+
+    SyncStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [idle, running, succeeded, failed]
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastSuccessAt:
+          type: string
+          format: date-time
+          nullable: true
+        message:
+          type: string
+          nullable: true
+      required:
+        - status
+        - startedAt
+        - completedAt
+        - lastSuccessAt
+        - message
+
+    SyncStatusResponse:
+      type: object
+      properties:
+        jobs:
+          $ref: "#/components/schemas/SyncStatus"
+        gigs:
+          $ref: "#/components/schemas/SyncStatus"
+      required:
+        - jobs
+        - gigs

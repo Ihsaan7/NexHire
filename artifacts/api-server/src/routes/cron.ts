@@ -4,6 +4,7 @@ import { connectMongo } from "../lib/mongodb";
 import { Job } from "../models/Job";
 import { generateEmbedding } from "../lib/gemini";
 import { logger } from "../lib/logger";
+import { beginSync, completeSync, failSync } from "../lib/syncStatus";
 
 const router = Router();
 
@@ -236,6 +237,11 @@ router.post("/cron/sync-adzuna", async (req, res) => {
     return;
   }
 
+  if (!beginSync("jobs")) {
+    res.status(202).json({ message: "Job sync is already running." });
+    return;
+  }
+
   // Respond immediately — sync runs in the background
   res.status(202).json({ message: "Sync started in background. Check logs for progress." });
 
@@ -464,7 +470,12 @@ router.post("/cron/sync-adzuna", async (req, res) => {
     const deleted = deleteResult.deletedCount ?? 0;
 
     logger.info({ inserted, updated, deleted, errors }, "Job sync complete");
+    completeSync(
+      "jobs",
+      `Job sync completed: ${inserted} added, ${updated} updated, ${deleted} removed, ${errors} errors.`,
+    );
   } catch (err) {
+    failSync("jobs", "Job sync failed. Check server logs for details.");
     logger.error({ err }, "syncJobs background error");
   }
   })();
