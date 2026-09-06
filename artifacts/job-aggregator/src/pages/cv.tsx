@@ -140,7 +140,12 @@ export default function CV() {
 
   const auditCv = useAuditCv({
     mutation: {
-      onSuccess: (data) => setAudit(data),
+      onSuccess: (data) => {
+        setAudit(data);
+        // Refresh the profile so the saved audit is the source of truth when
+        // the user leaves and returns to CV Studio.
+        refetchProfile();
+      },
       onError: (error) => {
         toast({ title: "Audit failed", description: getApiErrorMessage(error, "Try again."), variant: "destructive" });
       },
@@ -148,7 +153,12 @@ export default function CV() {
   });
   const refineCv = useRefineCv({
     mutation: {
-      onSuccess: (data) => setRefined(data),
+      onSuccess: (data) => {
+        setRefined(data);
+        // Refresh the profile so the saved job context and rewritten CV are
+        // available after navigation or an authenticated reload.
+        refetchProfile();
+      },
       onError: (error) => {
         toast({ title: "Refine failed", description: getApiErrorMessage(error, "Try again."), variant: "destructive" });
       },
@@ -173,7 +183,16 @@ export default function CV() {
       return;
     }
     uploadCv.mutate({ data: { file } }, {
-      onSuccess: () => { toast({ title: "CV uploaded successfully", description: "Your data has been extracted." }); refetchProfile(); },
+      onSuccess: () => {
+        // The API removes audit/refinement results for a replacement CV.
+        // Clear the current view immediately while the profile rehydrates.
+        setAudit(null);
+        setRefined(null);
+        setJobTitle("");
+        setJobDescription("");
+        toast({ title: "CV uploaded successfully", description: "Your data has been extracted." });
+        refetchProfile();
+      },
       onError: (error) => toast({
         title: "Upload failed",
         description: getApiErrorMessage(error, "Something went wrong."),
