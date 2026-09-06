@@ -1,0 +1,80 @@
+I am returning to this project after a few months away.
+Do NOT add any new features. Your only job right now is to
+stabilize what exists so the app can be deployed.
+
+Read all existing code carefully before doing anything.
+Tell me what is actually working, what is partially broken,
+and what is completely missing from Phase 1 below.
+
+Then fix Phase 1 issues one by one, waiting for my confirmation
+after each fix before moving to the next.
+
+--- PHASE 1 GOALS (in this exact order) ---
+
+1. API CONTRACT SYNC
+   - Read openapi.yaml carefully
+   - Find every endpoint in the backend that is NOT in the contract
+     (CV audit, CV refinement, practice session start, practice answers,
+     authenticated gig sync)
+   - Add them to the OpenAPI contract
+   - Replace all manual fetch() calls in the frontend with the
+     generated API client hooks
+   - Goal: one consistent contract, no orphaned fetch calls
+
+2. VALIDATION + ERROR HANDLING
+   - Every API route must validate inputs using Zod schemas
+   - Replace ALL generic error responses with specific messages:
+     "Your CV could not be read. Try uploading a text-based PDF."
+     "AI analysis is temporarily unavailable. Please try again."
+     "Job data is currently being refreshed."
+     "This job could not be saved."
+     "Your session expired. Please sign in again."
+   - Add loading states, empty states, and error states to every
+     page that is currently missing them
+
+3. CV STUDIO — PERSISTENCE
+   - Save CV audit results to the database (linked to userId)
+   - Save AI suggestions to the database
+   - Save refined CV versions to the database (linked to userId + jobId)
+   - Add a CV version history list in CV Studio UI
+   - Add a delete CV + delete all CV data option (privacy requirement)
+   - Do NOT add PDF/DOCX export yet — that is Phase 2
+
+4. PRACTICE — PERSISTENCE
+   - Save practice sessions to the database (userId + timestamp)
+   - On page load, check if there is an incomplete session and
+     offer to resume it
+   - Add a practice history page showing past sessions + scores
+   - Sessions must survive a page refresh
+
+5. VECTOR SEARCH RELIABILITY
+   - Add explicit check: if Atlas vector search index is unavailable,
+     do NOT silently fall back to recent jobs
+   - Instead, show a clear label: "AI matching unavailable — showing
+     recent jobs instead"
+   - Log embedding dimension mismatches
+   - Re-queue jobs that failed embedding generation
+
+6. SYNC STATUS VISIBILITY
+   - Add a sync status indicator (last synced time, currently syncing,
+     number of new jobs added)
+   - Prevent duplicate sync operations (if sync is already running,
+     block a second trigger)
+   - Show which sources failed with a retry option
+
+7. ONBOARDING FLOW
+   - After first signup, show a 4-step onboarding modal:
+     Step 1: What type of work? (government / private / remote / all)
+     Step 2: Preferred city or remote?
+     Step 3: Experience level?
+     Step 4: Upload your CV (optional, skippable)
+   - Save answers to the profiles collection preferences field
+   - Mark onboarding as complete (onboardingComplete: true in profile)
+   - Never show onboarding again once completed
+
+--- RULES ---
+- Fix one item at a time, show me what you changed, wait for my OK
+- Do not touch UI design or add new features
+- Do not change the database schema beyond what Phase 1 requires
+- Tell me clearly when Phase 1 is fully done and the app is
+  ready for deployment review
