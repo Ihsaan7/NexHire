@@ -55,7 +55,9 @@ const cvAudits: {
   _id: { toString: () => string };
   userId: string;
   cvUpdatedAt: Date;
-  auditResult: Audit;
+  auditResult?: Audit;
+  suggestions?: string[];
+  suggestionsGeneratedAt?: Date;
   createdAt: Date;
 }[] = [];
 
@@ -152,7 +154,9 @@ const fakeCvAuditModel = {
   create(input: {
     userId: string;
     cvUpdatedAt: Date;
-    auditResult: Audit;
+    auditResult?: Audit;
+    suggestions?: string[];
+    suggestionsGeneratedAt?: Date;
     createdAt: Date;
   }) {
     const id = `audit-${cvAudits.length + 1}`;
@@ -163,19 +167,40 @@ const fakeCvAuditModel = {
     cvAudits.push(record);
     return Promise.resolve(clone(record));
   },
-  findOne(query: { userId: string; cvUpdatedAt: Date }) {
+  findOne(query: {
+    userId: string;
+    cvUpdatedAt: Date;
+    auditResult?: { $exists: boolean };
+    suggestionsGeneratedAt?: { $exists: boolean };
+  }) {
     return {
       sort: () => {
         const record = cvAudits
           .filter(
             (audit) =>
               audit.userId === query.userId &&
-              audit.cvUpdatedAt.getTime() === query.cvUpdatedAt.getTime(),
+              audit.cvUpdatedAt.getTime() === query.cvUpdatedAt.getTime() &&
+              (query.auditResult?.$exists !== true || !!audit.auditResult) &&
+              (query.suggestionsGeneratedAt?.$exists !== true ||
+                !!audit.suggestionsGeneratedAt),
           )
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
         return Promise.resolve(record ? clone(record) : null);
       },
     };
+  },
+  updateOne(
+    query: { _id: { toString: () => string } },
+    update: { $set: Record<string, unknown> },
+  ) {
+    const record = cvAudits.find(
+      (audit) => audit._id.toString() === query._id.toString(),
+    );
+    if (record) Object.assign(record, clone(update.$set));
+    return Promise.resolve({
+      acknowledged: true,
+      modifiedCount: record ? 1 : 0,
+    });
   },
 };
 
@@ -200,6 +225,11 @@ const refinementResult = {
     "Prioritized REST API and database experience.",
   ],
 };
+const suggestionResult = [
+  "Add measurable outcomes to your recent experience.",
+  "Move your strongest technical skills closer to the top.",
+];
+let suggestionGenerationCount = 0;
 
 const moduleUrl = (relativePath: string) =>
   new URL(relativePath, import.meta.url).href;
@@ -232,7 +262,11 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
     generateEmbedding: async () => [0.1, 0.2, 0.3],
     auditCvPakistan: async () => ({ ...auditResult }),
     refineCvForJob: async () => ({ ...refinementResult }),
-    generateCvSuggestions: async () => [],
+    generateCvSuggestions: async () => {
+      suggestionGenerationCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      return [...suggestionResult];
+    },
   },
 });
 
@@ -280,6 +314,7 @@ async function apiRequest(
 test("persists CV Studio results across reloads and clears them for a replacement CV", async () => {
   profiles.clear();
   cvAudits.length = 0;
+  suggestionGenerationCount = 0;
   const fixture = await readFile(fixturePath);
   const { server, baseUrl } = await startTestServer();
 
@@ -306,6 +341,24 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     assert.equal(uploadedProfile.cvAudit, undefined);
     assert.equal(uploadedProfile.cvRefinement, undefined);
 
+    const firstSuggestionsResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/suggestions",
+    );
+    assert.equal(firstSuggestionsResponse.status, 200);
+    const firstSuggestions = await firstSuggestionsResponse.json();
+    assert.deepEqual(firstSuggestions.suggestions, suggestionResult);
+    assert.ok(firstSuggestions.generatedAt);
+    assert.equal(suggestionGenerationCount, 1);
+
+    const restoredSuggestionsResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/suggestions",
+    );
+    assert.equal(restoredSuggestionsResponse.status, 200);
+    assert.deepEqual(await restoredSuggestionsResponse.json(), firstSuggestions);
+    assert.equal(suggestionGenerationCount, 1);
+
     const auditResponse = await apiRequest(baseUrl, "/profile/cv/audit", {
       method: "POST",
     });
@@ -322,12 +375,15 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     );
     assert.equal(latestAuditResponse.status, 200);
     const latestAudit = await latestAuditResponse.json();
-    assert.equal(latestAudit.audit.id, "audit-1");
+    assert.equal(latestAudit.audit.id, "audit-2");
     assert.deepEqual(latestAudit.audit.auditResult, {
       score: auditResult.score,
       issues: auditResult.issues,
       strengths: auditResult.strengths,
     });
+    assert.deepEqual(latestAudit.audit.suggestions, suggestionResult);
+    assert.equal(cvAudits.length, 2);
+    assert.deepEqual(cvAudits[1]?.suggestions, suggestionResult);
     assert.ok(latestAudit.audit.createdAt);
 
     const profileAfterAudit = await apiRequest(baseUrl, "/profile");
@@ -383,6 +439,54 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     );
     assert.equal(replacementAuditResponse.status, 200);
     assert.deepEqual(await replacementAuditResponse.json(), { audit: null });
+
+    const concurrentSuggestionResponses = await Promise.all([
+      apiRequest(baseUrl, "/profile/cv/suggestions"),
+      apiRequest(baseUrl, "/profile/cv/suggestions"),
+    ]);
+    assert.equal(concurrentSuggestionResponses[0]?.status, 200);
+    assert.equal(concurrentSuggestionResponses[1]?.status, 200);
+    const concurrentSuggestions = await Promise.all(
+      concurrentSuggestionResponses.map((response) => response.json()),
+    );
+    assert.deepEqual(concurrentSuggestions[0], concurrentSuggestions[1]);
+    assert.equal(suggestionGenerationCount, 2);
+
+    const legacyProfile = newProfile(userId);
+    legacyProfile.cvText = "Legacy CV with no explicit upload timestamp";
+    legacyProfile.updatedAt = new Date("2026-08-01T00:00:00.000Z");
+    profiles.set(userId, legacyProfile);
+
+    const legacySuggestionsResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/suggestions",
+    );
+    assert.equal(legacySuggestionsResponse.status, 200);
+    const legacySuggestions = await legacySuggestionsResponse.json();
+    assert.equal(suggestionGenerationCount, 3);
+    assert.ok(profiles.get(userId)?.cvUpdatedAt);
+
+    await apiRequest(baseUrl, "/profile", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        preferences: {
+          sectors: ["private-tech"],
+          experienceLevel: "mid",
+        },
+      }),
+    });
+
+    const restoredLegacySuggestionsResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/suggestions",
+    );
+    assert.equal(restoredLegacySuggestionsResponse.status, 200);
+    assert.deepEqual(
+      await restoredLegacySuggestionsResponse.json(),
+      legacySuggestions,
+    );
+    assert.equal(suggestionGenerationCount, 3);
   } finally {
     await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
   }

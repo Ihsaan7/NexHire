@@ -745,6 +745,12 @@ components:
           type: string
         auditResult:
           $ref: "#/components/schemas/CvAuditResult"
+        suggestions:
+          type: array
+          items:
+            type: string
+        suggestionsGeneratedAt:
+          type: string
         createdAt:
           type: string
       required:

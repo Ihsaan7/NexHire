@@ -38,10 +38,21 @@ const upload = multer({
 
 const router = Router();
 
+type SuggestionGenerationOutcome =
+  | { ok: true; suggestions: string[]; generatedAt: Date }
+  | { ok: false };
+
+const suggestionFlights = new Map<
+  string,
+  Promise<SuggestionGenerationOutcome>
+>();
+
 function formatCvAuditRecord(audit: any) {
   return {
     id: audit._id.toString(),
     auditResult: audit.auditResult,
+    suggestions: audit.suggestions,
+    suggestionsGeneratedAt: audit.suggestionsGeneratedAt?.toISOString(),
     createdAt: audit.createdAt.toISOString(),
   };
 }
@@ -223,6 +234,7 @@ router.get("/profile/cv/audit", requireAuth, async (req, res) => {
     const audit = await CvAudit.findOne({
       userId,
       cvUpdatedAt: profile.cvUpdatedAt,
+      auditResult: { $exists: true },
     }).sort({ createdAt: -1 });
 
     res.json(
@@ -248,10 +260,17 @@ router.post("/profile/cv/audit", requireAuth, async (req, res) => {
     const generatedAt = new Date();
     const auditedCvUpdatedAt =
       profile.cvUpdatedAt ?? profile.updatedAt ?? generatedAt;
+    const savedSuggestions = await CvAudit.findOne({
+      userId,
+      cvUpdatedAt: auditedCvUpdatedAt,
+      suggestionsGeneratedAt: { $exists: true },
+    }).sort({ createdAt: -1 });
     await CvAudit.create({
       userId,
       cvUpdatedAt: auditedCvUpdatedAt,
       auditResult: audit,
+      suggestions: savedSuggestions?.suggestions,
+      suggestionsGeneratedAt: savedSuggestions?.suggestionsGeneratedAt,
       createdAt: generatedAt,
     });
     const currentProfile = await Profile.findOneAndUpdate(
@@ -332,19 +351,122 @@ router.get("/profile/cv/suggestions", requireAuth, async (req, res) => {
   try {
     await connectMongo();
     const userId = (req as any).userId as string;
-    const profile = await Profile.findOne({ userId });
+    let profile = await Profile.findOne({ userId });
 
     if (!profile?.cvText) {
       res.status(400).json({ error: "No CV uploaded yet" });
       return;
     }
 
-    const suggestions = await generateCvSuggestions(profile.cvText);
+    if (!profile.cvUpdatedAt) {
+      const legacyCvUpdatedAt = profile.updatedAt ?? new Date();
+      const initializedProfile = await Profile.findOneAndUpdate(
+        {
+          userId,
+          cvText: profile.cvText,
+          $or: [
+            { cvUpdatedAt: { $exists: false } },
+            { cvUpdatedAt: null },
+          ],
+        },
+        { $set: { cvUpdatedAt: legacyCvUpdatedAt } },
+        { new: true },
+      );
 
-    res.json(GetCvSuggestionsResponse.parse({
-      suggestions,
-      generatedAt: new Date().toISOString(),
-    }));
+      if (initializedProfile) {
+        profile = initializedProfile;
+      } else {
+        const currentProfile = await Profile.findOne({ userId });
+        if (
+          !currentProfile?.cvUpdatedAt ||
+          currentProfile.cvText !== profile.cvText
+        ) {
+          res.status(409).json({
+            error:
+              "The CV changed while suggestions were being prepared. Please try again.",
+          });
+          return;
+        }
+        profile = currentProfile;
+      }
+    }
+
+    const cvUpdatedAt = profile.cvUpdatedAt;
+    const savedSuggestions = await CvAudit.findOne({
+      userId,
+      cvUpdatedAt,
+      suggestionsGeneratedAt: { $exists: true },
+    }).sort({ createdAt: -1 });
+
+    if (savedSuggestions?.suggestionsGeneratedAt) {
+      res.json(
+        GetCvSuggestionsResponse.parse({
+          suggestions: savedSuggestions.suggestions ?? [],
+          generatedAt: savedSuggestions.suggestionsGeneratedAt.toISOString(),
+        }),
+      );
+      return;
+    }
+
+    const flightKey = `${userId}:${cvUpdatedAt.toISOString()}`;
+    let flight = suggestionFlights.get(flightKey);
+    if (!flight) {
+      const cvText = profile.cvText;
+      flight = (async (): Promise<SuggestionGenerationOutcome> => {
+        const suggestions = await generateCvSuggestions(cvText);
+        const generatedAt = new Date();
+        const currentProfile = await Profile.findOne({
+          userId,
+          cvText,
+          cvUpdatedAt,
+        });
+        if (!currentProfile) return { ok: false };
+
+        const latestRecord = await CvAudit.findOne({
+          userId,
+          cvUpdatedAt,
+        }).sort({ createdAt: -1 });
+        if (latestRecord) {
+          await CvAudit.updateOne(
+            { _id: latestRecord._id },
+            { $set: { suggestions, suggestionsGeneratedAt: generatedAt } },
+          );
+        } else {
+          await CvAudit.create({
+            userId,
+            cvUpdatedAt,
+            suggestions,
+            suggestionsGeneratedAt: generatedAt,
+            createdAt: generatedAt,
+          });
+        }
+
+        return { ok: true, suggestions, generatedAt };
+      })();
+      suggestionFlights.set(flightKey, flight);
+      const clearFlight = () => {
+        if (suggestionFlights.get(flightKey) === flight) {
+          suggestionFlights.delete(flightKey);
+        }
+      };
+      void flight.then(clearFlight, clearFlight);
+    }
+
+    const outcome = await flight;
+    if (!outcome.ok) {
+      res.status(409).json({
+        error:
+          "The CV changed while suggestions were being generated. Please try again.",
+      });
+      return;
+    }
+
+    res.json(
+      GetCvSuggestionsResponse.parse({
+        suggestions: outcome.suggestions,
+        generatedAt: outcome.generatedAt.toISOString(),
+      }),
+    );
   } catch (err) {
     sendInternalServerError(req, res, err, "getCvSuggestions error");
   }

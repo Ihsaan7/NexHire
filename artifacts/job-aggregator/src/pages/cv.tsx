@@ -139,7 +139,14 @@ export default function CV() {
     },
   });
   const { data: suggestions, isLoading: loadingSuggestions } = useGetCvSuggestions({
-    query: { enabled: !!profile?.cvText, queryKey: getGetCvSuggestionsQueryKey() },
+    query: {
+      enabled: !!profile?.cvText,
+      queryKey: [
+        ...getGetCvSuggestionsQueryKey(),
+        profile?.userId ?? null,
+        profile?.cvUpdatedAt ?? null,
+      ],
+    },
   });
   const uploadCv = useUploadCv();
 
@@ -227,6 +234,9 @@ export default function CV() {
         setAuditGeneratedAt(null);
         queryClient.removeQueries({
           queryKey: getGetLatestCvAuditQueryKey(),
+        });
+        queryClient.removeQueries({
+          queryKey: getGetCvSuggestionsQueryKey(),
         });
         setRefined(null);
         setJobTitle("");

@@ -157,6 +157,8 @@ export const GetLatestCvAuditResponse = zod.object({
 })),
   "strengths": zod.array(zod.string())
 }),
+  "suggestions": zod.array(zod.string()).optional(),
+  "suggestionsGeneratedAt": zod.string().optional(),
   "createdAt": zod.string()
 }),zod.null()])
 })

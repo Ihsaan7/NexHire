@@ -98,6 +98,8 @@ export interface CvSuggestions {
 export interface CvAuditRecord {
   id: string;
   auditResult: CvAuditResult;
+  suggestions?: string[];
+  suggestionsGeneratedAt?: string;
   createdAt: string;
 }
 
