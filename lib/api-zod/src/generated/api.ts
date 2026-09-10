@@ -133,6 +133,14 @@ export const UploadCvResponse = zod.object({
 
 
 /**
+ * @summary Permanently delete the current user's CV and all derived AI data
+ */
+export const DeleteCvDataResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * @summary Get the latest five previous CV versions for the current user
  */
 export const GetCvVersionsResponse = zod.object({

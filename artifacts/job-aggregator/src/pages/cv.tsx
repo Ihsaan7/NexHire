@@ -12,6 +12,7 @@ import {
   useGetCvVersions,
   getGetCvVersionsQueryKey,
   useRestoreCvVersion,
+  useDeleteCvData,
   type CvAuditResult,
   type CvRefinementRecord,
   type CvRefineResult,
@@ -24,7 +25,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Upload, FileText, CheckCircle2, AlertTriangle, Sparkles,
   ShieldAlert, RefreshCw, Copy, Check, ChevronDown, ChevronUp,
-  Zap, Star,
+  Zap, Star, Trash2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -275,6 +276,32 @@ export default function CV() {
       },
     },
   });
+  const deleteCvData = useDeleteCvData({
+    mutation: {
+      onSuccess: async () => {
+        setAudit(null);
+        setAuditGeneratedAt(null);
+        setRefined(null);
+        setSelectedRefinementId(null);
+        setJobTitle("");
+        setJobDescription("");
+        queryClient.removeQueries();
+        await refetchProfile();
+        toast({
+          title: "CV data deleted",
+          description: "Your CV and AI analysis history were permanently deleted.",
+        });
+      },
+      onError: async (error) => {
+        await refetchProfile();
+        toast({
+          title: "Delete failed",
+          description: getApiErrorMessage(error, "Please try again."),
+          variant: "destructive",
+        });
+      },
+    },
+  });
   const auditing = auditCv.isPending;
   const refining = refineCv.isPending;
 
@@ -346,6 +373,14 @@ export default function CV() {
     );
     if (!confirmed) return;
     restoreCvVersion.mutate({ versionId });
+  };
+
+  const deleteAllCvData = () => {
+    const confirmed = window.confirm(
+      "This will permanently delete your CV and all AI analysis history. This cannot be undone.",
+    );
+    if (!confirmed) return;
+    deleteCvData.mutate();
   };
 
   const copyRefined = () => {
@@ -506,6 +541,28 @@ export default function CV() {
                   <p className="text-sm text-muted-foreground font-mono">Your CV looks solid. Keep it updated.</p>
                 )}
               </div>
+              {hasCV && (
+                <div className="border border-destructive/40 bg-card/30 p-6">
+                  <h3 className="font-mono uppercase text-xs tracking-widest mb-3">
+                    Privacy controls
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                    Permanently remove your CV and all saved AI analysis history.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full rounded-none font-mono uppercase text-xs tracking-wider"
+                    onClick={deleteAllCvData}
+                    disabled={deleteCvData.isPending}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {deleteCvData.isPending
+                      ? "Deleting CV data…"
+                      : "Delete my CV data"}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>

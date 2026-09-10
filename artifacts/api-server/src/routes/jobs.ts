@@ -387,7 +387,7 @@ router.get("/jobs/:id", requireAuth, async (req, res) => {
 // GET /api/jobs/:id/analyze
 router.get("/jobs/:id/analyze", requireAuth, async (req, res) => {
   try {
-    await connectMongo();
+    const connection = await connectMongo();
     const userId = (req as any).userId as string;
     const parsed = AnalyzeJobMatchParams.safeParse(req.params);
     if (!parsed.success) {
@@ -443,26 +443,65 @@ router.get("/jobs/:id/analyze", requireAuth, async (req, res) => {
       return;
     }
 
+    const analyzedCvText = profile.cvText;
+    const analyzedCvUpdatedAt =
+      profile.cvUpdatedAt ?? profile.updatedAt ?? new Date();
     const analysis = await analyzeJobMatch(
-      profile.cvText,
+      analyzedCvText,
       job.title,
       `${job.description ?? ""}\n${job.requirements ?? ""}`,
     );
 
-    // Cache the result
-    await MatchAnalysis.findOneAndUpdate(
-      { userId, jobId: new mongoose.Types.ObjectId(id as string) },
-      {
-        $set: {
-          matchScore: analysis.matchScore,
-          strengths: analysis.strengths,
-          gaps: analysis.gaps,
-          suggestions: analysis.suggestions,
-          cachedAt: new Date(),
-        },
-      },
-      { upsert: true },
-    );
+    const cachedAt = new Date();
+    const session = await connection.startSession();
+    let saved = false;
+    try {
+      const result = await session.withTransaction(async () => {
+        const currentProfile = await Profile.findOneAndUpdate(
+          {
+            userId,
+            cvText: analyzedCvText,
+            ...(profile.cvUpdatedAt
+              ? { cvUpdatedAt: profile.cvUpdatedAt }
+              : {
+                  $or: [
+                    { cvUpdatedAt: { $exists: false } },
+                    { cvUpdatedAt: null },
+                  ],
+                }),
+          },
+          { $set: { cvUpdatedAt: analyzedCvUpdatedAt } },
+          { new: true, session },
+        );
+        if (!currentProfile) return false;
+
+        await MatchAnalysis.findOneAndUpdate(
+          { userId, jobId: new mongoose.Types.ObjectId(id as string) },
+          {
+            $set: {
+              matchScore: analysis.matchScore,
+              strengths: analysis.strengths,
+              gaps: analysis.gaps,
+              suggestions: analysis.suggestions,
+              cachedAt,
+            },
+          },
+          { upsert: true, session },
+        );
+        return true;
+      });
+      saved = result === true;
+    } finally {
+      await session.endSession();
+    }
+
+    if (!saved) {
+      res.status(409).json({
+        error:
+          "The CV changed while the match analysis was running. Please try again.",
+      });
+      return;
+    }
 
     res.json(AnalyzeJobMatchResponse.parse({
       jobId: id,
@@ -470,7 +509,7 @@ router.get("/jobs/:id/analyze", requireAuth, async (req, res) => {
       strengths: analysis.strengths,
       gaps: analysis.gaps,
       suggestions: analysis.suggestions,
-      cachedAt: new Date().toISOString(),
+      cachedAt: cachedAt.toISOString(),
     }));
   } catch (err) {
     sendInternalServerError(req, res, err, "analyzeJobMatch error");

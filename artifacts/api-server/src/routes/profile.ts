@@ -6,10 +6,12 @@ import { Profile } from "../models/Profile";
 import { CvAudit } from "../models/CvAudit";
 import { CvRefinement } from "../models/CvRefinement";
 import { CvVersion } from "../models/CvVersion";
+import { MatchAnalysis } from "../models/MatchAnalysis";
 import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini";
 import { logger } from "../lib/logger";
 import {
   AuditCvResponse,
+  DeleteCvDataResponse,
   GetLatestCvAuditResponse,
   GetCvRefinementsResponse,
   GetCvVersionsResponse,
@@ -52,31 +54,9 @@ const suggestionFlights = new Map<
   string,
   Promise<SuggestionGenerationOutcome>
 >();
-const refinementWriteTails = new Map<string, Promise<void>>();
 const cvMutationTails = new Map<string, Promise<void>>();
 
 class CvMutationConflictError extends Error {}
-
-async function serializeRefinementWrite<T>(
-  userId: string,
-  write: () => Promise<T>,
-): Promise<T> {
-  const previous = refinementWriteTails.get(userId) ?? Promise.resolve();
-  const operation = previous.catch(() => undefined).then(write);
-  const tail = operation.then(
-    () => undefined,
-    () => undefined,
-  );
-  refinementWriteTails.set(userId, tail);
-
-  try {
-    return await operation;
-  } finally {
-    if (refinementWriteTails.get(userId) === tail) {
-      refinementWriteTails.delete(userId);
-    }
-  }
-}
 
 async function serializeCvMutation<T>(
   userId: string,
@@ -348,6 +328,42 @@ router.post(
   },
 );
 
+router.delete("/profile/cv", requireAuth, async (req, res) => {
+  try {
+    const connection = await connectMongo();
+    const userId = (req as any).userId as string;
+
+    await serializeCvMutation(userId, () =>
+      runInTransaction(connection, async (session) => {
+        await Profile.updateOne(
+          { userId },
+          {
+            $unset: {
+              cvText: 1,
+              cvEmbedding: 1,
+              cvUpdatedAt: 1,
+              cvScore: 1,
+              cvIssues: 1,
+              cvAudit: 1,
+              cvRefinement: 1,
+            },
+          },
+          { session },
+        );
+        await CvAudit.deleteMany({ userId }, { session });
+        await CvRefinement.deleteMany({ userId }, { session });
+        await CvVersion.deleteMany({ userId }, { session });
+        await MatchAnalysis.deleteMany({ userId }, { session });
+        return true;
+      }),
+    );
+
+    res.json(DeleteCvDataResponse.parse({ success: true }));
+  } catch (err) {
+    sendInternalServerError(req, res, err, "deleteCvData error");
+  }
+});
+
 router.get("/profile/cv/versions", requireAuth, async (req, res) => {
   try {
     await connectMongo();
@@ -509,7 +525,7 @@ router.get("/profile/cv/audit", requireAuth, async (req, res) => {
 
 router.post("/profile/cv/audit", requireAuth, async (req, res) => {
   try {
-    await connectMongo();
+    const connection = await connectMongo();
     const userId = (req as any).userId as string;
     const profile = await Profile.findOne({ userId });
     if (!profile?.cvText) {
@@ -520,41 +536,58 @@ router.post("/profile/cv/audit", requireAuth, async (req, res) => {
     const generatedAt = new Date();
     const auditedCvUpdatedAt =
       profile.cvUpdatedAt ?? profile.updatedAt ?? generatedAt;
-    const savedSuggestions = await CvAudit.findOne({
-      userId,
-      cvUpdatedAt: auditedCvUpdatedAt,
-      suggestionsGeneratedAt: { $exists: true },
-    }).sort({ createdAt: -1 });
-    await CvAudit.create({
-      userId,
-      cvUpdatedAt: auditedCvUpdatedAt,
-      auditResult: audit,
-      suggestions: savedSuggestions?.suggestions,
-      suggestionsGeneratedAt: savedSuggestions?.suggestionsGeneratedAt,
-      createdAt: generatedAt,
-    });
-    const currentProfile = await Profile.findOneAndUpdate(
-      {
-        userId,
-        cvText: profile.cvText,
-        ...(profile.cvUpdatedAt
-          ? { cvUpdatedAt: profile.cvUpdatedAt }
-          : {
-              $or: [
-                { cvUpdatedAt: { $exists: false } },
-                { cvUpdatedAt: null },
-              ],
-            }),
-      },
-      {
-        $set: {
-          cvUpdatedAt: auditedCvUpdatedAt,
-          cvAudit: { ...audit, generatedAt },
-        },
-      },
-      { new: true },
+    const saved = await serializeCvMutation(userId, () =>
+      runInTransaction(connection, async (session) => {
+        const currentProfile = await Profile.findOneAndUpdate(
+          {
+            userId,
+            cvText: profile.cvText,
+            ...(profile.cvUpdatedAt
+              ? { cvUpdatedAt: profile.cvUpdatedAt }
+              : {
+                  $or: [
+                    { cvUpdatedAt: { $exists: false } },
+                    { cvUpdatedAt: null },
+                  ],
+                }),
+          },
+          {
+            $set: {
+              cvUpdatedAt: auditedCvUpdatedAt,
+              cvAudit: { ...audit, generatedAt },
+            },
+          },
+          { new: true, session },
+        );
+        if (!currentProfile) return false;
+
+        const savedSuggestions = await CvAudit.findOne(
+          {
+            userId,
+            cvUpdatedAt: auditedCvUpdatedAt,
+            suggestionsGeneratedAt: { $exists: true },
+          },
+          null,
+          { session },
+        ).sort({ createdAt: -1 });
+        await CvAudit.create(
+          [
+            {
+              userId,
+              cvUpdatedAt: auditedCvUpdatedAt,
+              auditResult: audit,
+              suggestions: savedSuggestions?.suggestions,
+              suggestionsGeneratedAt:
+                savedSuggestions?.suggestionsGeneratedAt,
+              createdAt: generatedAt,
+            },
+          ],
+          { session },
+        );
+        return true;
+      }),
     );
-    if (!currentProfile) {
+    if (!saved) {
       res.status(409).json({
         error: "The CV changed while the audit was running. Please re-analyse it.",
       });
@@ -594,7 +627,7 @@ router.get("/profile/cv/refinements", requireAuth, async (req, res) => {
 
 router.post("/profile/cv/refine", requireAuth, async (req, res) => {
   try {
-    await connectMongo();
+    const connection = await connectMongo();
     const userId = (req as any).userId as string;
     const parsed = RefineCvBody.safeParse(req.body);
     if (!parsed.success) {
@@ -612,58 +645,74 @@ router.post("/profile/cv/refine", requireAuth, async (req, res) => {
       return;
     }
     const result = await refineCvForJob(profile.cvText, jobTitle || "the role", jobDescription);
-    const generatedAt = await serializeRefinementWrite(userId, async () => {
-      const createdAt = new Date();
-      await CvRefinement.create({
-        userId,
-        jobTitle: jobTitle?.trim() || "General role",
-        jobDescription: jobDescription.trim().slice(0, 500),
-        refinedText: result.refinedCv,
-        createdAt,
-      });
-
-      const staleRefinements = await CvRefinement.find({ userId })
-        .sort({ createdAt: -1, _id: -1 })
-        .skip(10)
-        .select({ _id: 1 });
-      if (staleRefinements.length > 0) {
-        await CvRefinement.deleteMany({
-          userId,
-          _id: { $in: staleRefinements.map((refinement) => refinement._id) },
-        });
-      }
-      return createdAt;
-    });
-
-    const currentProfile = await Profile.findOneAndUpdate(
-      {
-        userId,
-        cvText: profile.cvText,
-        ...(profile.cvUpdatedAt
-          ? { cvUpdatedAt: profile.cvUpdatedAt }
-          : {
-              $or: [
-                { cvUpdatedAt: { $exists: false } },
-                { cvUpdatedAt: null },
-              ],
-            }),
-      },
-      {
-        $set: {
-          cvRefinement: {
-            ...result,
-            jobTitle: jobTitle || null,
-            jobDescription,
-            generatedAt,
+    const saved = await serializeCvMutation(userId, () =>
+      runInTransaction(connection, async (session) => {
+        const generatedAt = new Date();
+        const currentProfile = await Profile.findOneAndUpdate(
+          {
+            userId,
+            cvText: profile.cvText,
+            ...(profile.cvUpdatedAt
+              ? { cvUpdatedAt: profile.cvUpdatedAt }
+              : {
+                  $or: [
+                    { cvUpdatedAt: { $exists: false } },
+                    { cvUpdatedAt: null },
+                  ],
+                }),
           },
-        },
-      },
-      { new: true },
+          {
+            $set: {
+              cvRefinement: {
+                ...result,
+                jobTitle: jobTitle || null,
+                jobDescription,
+                generatedAt,
+              },
+            },
+          },
+          { new: true, session },
+        );
+        if (!currentProfile) return false;
+
+        await CvRefinement.create(
+          [
+            {
+              userId,
+              jobTitle: jobTitle?.trim() || "General role",
+              jobDescription: jobDescription.trim().slice(0, 500),
+              refinedText: result.refinedCv,
+              createdAt: generatedAt,
+            },
+          ],
+          { session },
+        );
+
+        const staleRefinements = await CvRefinement.find(
+          { userId },
+          null,
+          { session },
+        )
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(10)
+          .select({ _id: 1 });
+        if (staleRefinements.length > 0) {
+          await CvRefinement.deleteMany(
+            {
+              userId,
+              _id: {
+                $in: staleRefinements.map((refinement) => refinement._id),
+              },
+            },
+            { session },
+          );
+        }
+        return true;
+      }),
     );
-    if (!currentProfile) {
+    if (!saved) {
       res.status(409).json({
-        error:
-          "The CV changed while refinement was running. The saved result is available in refinement history.",
+        error: "The CV changed while refinement was running. Please try again.",
       });
       return;
     }
@@ -676,7 +725,7 @@ router.post("/profile/cv/refine", requireAuth, async (req, res) => {
 // GET /api/profile/cv/suggestions
 router.get("/profile/cv/suggestions", requireAuth, async (req, res) => {
   try {
-    await connectMongo();
+    const connection = await connectMongo();
     const userId = (req as any).userId as string;
     let profile = await Profile.findOne({ userId });
 
@@ -742,31 +791,49 @@ router.get("/profile/cv/suggestions", requireAuth, async (req, res) => {
       flight = (async (): Promise<SuggestionGenerationOutcome> => {
         const suggestions = await generateCvSuggestions(cvText);
         const generatedAt = new Date();
-        const currentProfile = await Profile.findOne({
-          userId,
-          cvText,
-          cvUpdatedAt,
-        });
-        if (!currentProfile) return { ok: false };
+        const saved = await serializeCvMutation(userId, () =>
+          runInTransaction(connection, async (session) => {
+            const currentProfile = await Profile.findOneAndUpdate(
+              { userId, cvText, cvUpdatedAt },
+              { $set: { cvUpdatedAt } },
+              { new: true, session },
+            );
+            if (!currentProfile) return false;
 
-        const latestRecord = await CvAudit.findOne({
-          userId,
-          cvUpdatedAt,
-        }).sort({ createdAt: -1 });
-        if (latestRecord) {
-          await CvAudit.updateOne(
-            { _id: latestRecord._id },
-            { $set: { suggestions, suggestionsGeneratedAt: generatedAt } },
-          );
-        } else {
-          await CvAudit.create({
-            userId,
-            cvUpdatedAt,
-            suggestions,
-            suggestionsGeneratedAt: generatedAt,
-            createdAt: generatedAt,
-          });
-        }
+            const latestRecord = await CvAudit.findOne(
+              { userId, cvUpdatedAt },
+              null,
+              { session },
+            ).sort({ createdAt: -1 });
+            if (latestRecord) {
+              await CvAudit.updateOne(
+                { _id: latestRecord._id },
+                {
+                  $set: {
+                    suggestions,
+                    suggestionsGeneratedAt: generatedAt,
+                  },
+                },
+                { session },
+              );
+            } else {
+              await CvAudit.create(
+                [
+                  {
+                    userId,
+                    cvUpdatedAt,
+                    suggestions,
+                    suggestionsGeneratedAt: generatedAt,
+                    createdAt: generatedAt,
+                  },
+                ],
+                { session },
+              );
+            }
+            return true;
+          }),
+        );
+        if (!saved) return { ok: false };
 
         return { ok: true, suggestions, generatedAt };
       })();

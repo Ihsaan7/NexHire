@@ -90,6 +90,10 @@ export interface CvUploadResult {
   cvUpdatedAt: string;
 }
 
+export interface CvDeleteResult {
+  success: boolean;
+}
+
 export interface CvVersionRecord {
   id: string;
   cvText: string;

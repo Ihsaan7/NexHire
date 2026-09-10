@@ -10,6 +10,7 @@ export * from './cvAuditIssue';
 export * from './cvAuditIssueSeverity';
 export * from './cvAuditRecord';
 export * from './cvAuditResult';
+export * from './cvDeleteResult';
 export * from './cvFileInput';
 export * from './cvRefineInput';
 export * from './cvRefinementListResponse';

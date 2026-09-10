@@ -96,6 +96,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteCvData
+      tags: [profile]
+      summary: Permanently delete the current user's CV and all derived AI data
+      responses:
+        "200":
+          description: CV data permanently deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvDeleteResult"
 
   /profile/cv/versions:
     get:
@@ -739,6 +750,14 @@ components:
         - success
         - cvTextLength
         - cvUpdatedAt
+
+    CvDeleteResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
 
     CvVersionRecord:
       type: object

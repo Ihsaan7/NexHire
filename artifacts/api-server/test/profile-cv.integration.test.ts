@@ -38,6 +38,8 @@ type StoredProfile = {
   cvText?: string;
   cvEmbedding?: number[];
   cvUpdatedAt?: Date;
+  cvScore?: number;
+  cvIssues?: Audit["issues"];
   cvAudit?: Audit;
   cvRefinement?: Refinement;
   preferences: {
@@ -76,10 +78,23 @@ const cvVersions: {
   cvText: string;
   uploadedAt: Date;
 }[] = [];
+const matchAnalyses: {
+  _id: { toString: () => string };
+  userId: string;
+  jobId?: string;
+  matchScore: number;
+  strengths?: string[];
+  gaps?: string[];
+  suggestions?: string[];
+  cachedAt?: Date;
+}[] = [];
 let cvVersionSequence = 0;
 let failNextProfileUpdate = false;
 let failNextCvVersionDelete = false;
 let failNextCvVersionPrune = false;
+let failNextMatchAnalysisDelete = false;
+let signalMatchAnalysisStarted: (() => void) | null = null;
+let waitBeforeFinishingMatchAnalysis: Promise<void> | null = null;
 
 function clone<T>(value: T): T {
   if (value === undefined) return value;
@@ -137,6 +152,49 @@ function applyUpdate(
   profile.updatedAt = new Date("2026-09-06T00:00:01.000Z");
 }
 
+function matchesProfileQuery(
+  profile: StoredProfile,
+  query: Record<string, any>,
+): boolean {
+  const matchesValue = (actual: unknown, expected: any): boolean => {
+    if (expected && typeof expected === "object" && !(expected instanceof Date)) {
+      if ("$exists" in expected) {
+        return expected.$exists ? actual !== undefined : actual === undefined;
+      }
+      if ("$in" in expected) {
+        return expected.$in.some((value: unknown) =>
+          matchesValue(actual, value),
+        );
+      }
+    }
+    if (actual instanceof Date && expected instanceof Date) {
+      return actual.getTime() === expected.getTime();
+    }
+    return actual === expected;
+  };
+
+  for (const [key, expected] of Object.entries(query)) {
+    if (key === "$or") {
+      if (
+        !(expected as Record<string, unknown>[]).some((condition) =>
+          matchesProfileQuery(profile, condition),
+        )
+      ) {
+        return false;
+      }
+      continue;
+    }
+    if (key === "userId") {
+      if (profile.userId !== expected) return false;
+      continue;
+    }
+    if (!matchesValue((profile as Record<string, unknown>)[key], expected)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const fakeProfileModel = {
   findOne(query: { userId: string }) {
     return Promise.resolve(profiles.get(query.userId) ? clone(profiles.get(query.userId)) : null);
@@ -147,17 +205,22 @@ const fakeProfileModel = {
     return Promise.resolve(clone(profile));
   },
   findOneAndUpdate(
-    query: { userId: string },
+    query: { userId: string } & Record<string, unknown>,
     update: {
       $set?: Record<string, unknown>;
       $unset?: Record<string, unknown>;
     },
+    options: { upsert?: boolean } = {},
   ) {
     if (failNextProfileUpdate) {
       failNextProfileUpdate = false;
       return Promise.reject(new Error("Injected profile update failure"));
     }
-    const profile = getOrCreate(query.userId);
+    let profile = profiles.get(query.userId);
+    if (!profile || !matchesProfileQuery(profile, query)) {
+      if (!options.upsert) return Promise.resolve(null);
+      profile = getOrCreate(query.userId);
+    }
     applyUpdate(profile, update);
     return Promise.resolve(clone(profile));
   },
@@ -175,21 +238,35 @@ const fakeProfileModel = {
 };
 
 const fakeCvAuditModel = {
-  create(input: {
-    userId: string;
-    cvUpdatedAt: Date;
-    auditResult?: Audit;
-    suggestions?: string[];
-    suggestionsGeneratedAt?: Date;
-    createdAt: Date;
-  }) {
+  create(
+    input:
+      | {
+          userId: string;
+          cvUpdatedAt: Date;
+          auditResult?: Audit;
+          suggestions?: string[];
+          suggestionsGeneratedAt?: Date;
+          createdAt: Date;
+        }
+      | {
+          userId: string;
+          cvUpdatedAt: Date;
+          auditResult?: Audit;
+          suggestions?: string[];
+          suggestionsGeneratedAt?: Date;
+          createdAt: Date;
+        }[],
+  ) {
+    const wasArray = Array.isArray(input);
+    const auditInput = wasArray ? input[0] : input;
+    assert.ok(auditInput);
     const id = `audit-${cvAudits.length + 1}`;
     const record = {
-      ...clone(input),
+      ...clone(auditInput),
       _id: { toString: () => id },
     };
     cvAudits.push(record);
-    return Promise.resolve(clone(record));
+    return Promise.resolve(wasArray ? [clone(record)] : clone(record));
   },
   findOne(query: {
     userId: string;
@@ -226,21 +303,45 @@ const fakeCvAuditModel = {
       modifiedCount: record ? 1 : 0,
     });
   },
+  deleteMany(query: { userId: string }) {
+    let deletedCount = 0;
+    for (let index = cvAudits.length - 1; index >= 0; index -= 1) {
+      if (cvAudits[index]?.userId === query.userId) {
+        cvAudits.splice(index, 1);
+        deletedCount += 1;
+      }
+    }
+    return Promise.resolve({ acknowledged: true, deletedCount });
+  },
 };
 
 const fakeCvRefinementModel = {
-  create(input: {
-    userId: string;
-    jobId?: string;
-    jobTitle: string;
-    jobDescription: string;
-    refinedText: string;
-    createdAt: Date;
-  }) {
+  create(
+    input:
+      | {
+          userId: string;
+          jobId?: string;
+          jobTitle: string;
+          jobDescription: string;
+          refinedText: string;
+          createdAt: Date;
+        }
+      | {
+          userId: string;
+          jobId?: string;
+          jobTitle: string;
+          jobDescription: string;
+          refinedText: string;
+          createdAt: Date;
+        }[],
+  ) {
+    const wasArray = Array.isArray(input);
+    const refinementInput = wasArray ? input[0] : input;
+    assert.ok(refinementInput);
     refinementSequence += 1;
     const id = `refinement-${refinementSequence}`;
     const record = {
-      ...clone(input),
+      ...clone(refinementInput),
       createdAt: new Date(
         new Date("2026-09-01T00:00:00.000Z").getTime() +
           refinementSequence,
@@ -248,7 +349,7 @@ const fakeCvRefinementModel = {
       _id: { toString: () => id },
     };
     cvRefinements.push(record);
-    return Promise.resolve(clone(record));
+    return Promise.resolve(wasArray ? [clone(record)] : clone(record));
   },
   find(query: { userId: string }) {
     const sorted = () =>
@@ -267,15 +368,17 @@ const fakeCvRefinementModel = {
   },
   deleteMany(query: {
     userId: string;
-    _id: { $in: { toString: () => string }[] };
+    _id?: { $in: { toString: () => string }[] };
   }) {
-    const ids = new Set(query._id.$in.map((id) => id.toString()));
+    const ids = query._id
+      ? new Set(query._id.$in.map((id) => id.toString()))
+      : null;
     let deletedCount = 0;
     for (let index = cvRefinements.length - 1; index >= 0; index -= 1) {
       const refinement = cvRefinements[index];
       if (
         refinement?.userId === query.userId &&
-        ids.has(refinement._id.toString())
+        (!ids || ids.has(refinement._id.toString()))
       ) {
         cvRefinements.splice(index, 1);
         deletedCount += 1;
@@ -352,21 +455,69 @@ const fakeCvVersionModel = {
   },
   deleteMany(query: {
     userId: string;
-    _id: { $in: { toString: () => string }[] };
+    _id?: { $in: { toString: () => string }[] };
   }) {
     if (failNextCvVersionPrune) {
       failNextCvVersionPrune = false;
       return Promise.reject(new Error("Injected CV version prune failure"));
     }
-    const ids = new Set(query._id.$in.map((id) => id.toString()));
+    const ids = query._id
+      ? new Set(query._id.$in.map((id) => id.toString()))
+      : null;
     let deletedCount = 0;
     for (let index = cvVersions.length - 1; index >= 0; index -= 1) {
       const version = cvVersions[index];
       if (
         version?.userId === query.userId &&
-        ids.has(version._id.toString())
+        (!ids || ids.has(version._id.toString()))
       ) {
         cvVersions.splice(index, 1);
+        deletedCount += 1;
+      }
+    }
+    return Promise.resolve({ acknowledged: true, deletedCount });
+  },
+};
+
+const fakeMatchAnalysisModel = {
+  findOne(query: { userId: string; jobId: { toString: () => string } }) {
+    const record = matchAnalyses.find(
+      (analysis) =>
+        analysis.userId === query.userId &&
+        analysis.jobId === query.jobId.toString(),
+    );
+    return Promise.resolve(record ? clone(record) : null);
+  },
+  findOneAndUpdate(
+    query: { userId: string; jobId: { toString: () => string } },
+    update: { $set: Omit<(typeof matchAnalyses)[number], "_id" | "userId"> },
+  ) {
+    let record = matchAnalyses.find(
+      (analysis) =>
+        analysis.userId === query.userId &&
+        analysis.jobId === query.jobId.toString(),
+    );
+    if (!record) {
+      record = {
+        _id: { toString: () => `match-${matchAnalyses.length + 1}` },
+        userId: query.userId,
+        jobId: query.jobId.toString(),
+        matchScore: update.$set.matchScore,
+      };
+      matchAnalyses.push(record);
+    }
+    Object.assign(record, clone(update.$set));
+    return Promise.resolve(clone(record));
+  },
+  deleteMany(query: { userId: string }) {
+    if (failNextMatchAnalysisDelete) {
+      failNextMatchAnalysisDelete = false;
+      return Promise.reject(new Error("Injected match analysis delete failure"));
+    }
+    let deletedCount = 0;
+    for (let index = matchAnalyses.length - 1; index >= 0; index -= 1) {
+      if (matchAnalyses[index]?.userId === query.userId) {
+        matchAnalyses.splice(index, 1);
         deletedCount += 1;
       }
     }
@@ -400,6 +551,19 @@ const suggestionResult = [
   "Move your strongest technical skills closer to the top.",
 ];
 let suggestionGenerationCount = 0;
+const matchJobId = "507f1f77bcf86cd799439011";
+
+const fakeJobModel = {
+  findById(id: string) {
+    if (id !== matchJobId) return Promise.resolve(null);
+    return Promise.resolve({
+      _id: { toString: () => matchJobId },
+      title: "Senior Software Engineer",
+      description: "Build reliable backend services.",
+      requirements: "Node.js and MongoDB",
+    });
+  },
+};
 
 const moduleUrl = (relativePath: string) =>
   new URL(relativePath, import.meta.url).href;
@@ -425,7 +589,11 @@ mock.module(moduleUrl("../src/lib/mongodb.ts"), {
           const profileSnapshot = new Map(
             [...profiles].map(([key, value]) => [key, clone(value)]),
           );
+          const auditSnapshot = cvAudits.map(clone);
+          const refinementSnapshot = cvRefinements.map(clone);
           const versionSnapshot = cvVersions.map(clone);
+          const matchAnalysisSnapshot = matchAnalyses.map(clone);
+          const refinementSequenceSnapshot = refinementSequence;
           const versionSequenceSnapshot = cvVersionSequence;
           try {
             return await operation();
@@ -434,7 +602,19 @@ mock.module(moduleUrl("../src/lib/mongodb.ts"), {
             for (const [key, value] of profileSnapshot) {
               profiles.set(key, value);
             }
+            cvAudits.splice(0, cvAudits.length, ...auditSnapshot);
+            cvRefinements.splice(
+              0,
+              cvRefinements.length,
+              ...refinementSnapshot,
+            );
             cvVersions.splice(0, cvVersions.length, ...versionSnapshot);
+            matchAnalyses.splice(
+              0,
+              matchAnalyses.length,
+              ...matchAnalysisSnapshot,
+            );
+            refinementSequence = refinementSequenceSnapshot;
             cvVersionSequence = versionSequenceSnapshot;
             throw error;
           }
@@ -456,8 +636,24 @@ mock.module(moduleUrl("../src/models/CvRefinement.ts"), {
 mock.module(moduleUrl("../src/models/CvVersion.ts"), {
   namedExports: { CvVersion: fakeCvVersionModel },
 });
+mock.module(moduleUrl("../src/models/MatchAnalysis.ts"), {
+  namedExports: { MatchAnalysis: fakeMatchAnalysisModel },
+});
+mock.module(moduleUrl("../src/models/Job.ts"), {
+  namedExports: { Job: fakeJobModel },
+});
+mock.module(moduleUrl("../src/lib/rateLimit.ts"), {
+  namedExports: {
+    checkRateLimit: () => ({
+      allowed: true,
+      remaining: 4,
+      resetAt: Date.now() + 60_000,
+    }),
+  },
+});
 mock.module(moduleUrl("../src/lib/gemini.ts"), {
   namedExports: {
+    EMBEDDING_DIMENSIONS: 3,
     generateEmbedding: async () => [0.1, 0.2, 0.3],
     auditCvPakistan: async () => ({ ...auditResult }),
     refineCvForJob: async () => ({ ...refinementResult }),
@@ -466,10 +662,23 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
       await new Promise((resolve) => setTimeout(resolve, 25));
       return [...suggestionResult];
     },
+    analyzeJobMatch: async () => {
+      signalMatchAnalysisStarted?.();
+      if (waitBeforeFinishingMatchAnalysis) {
+        await waitBeforeFinishingMatchAnalysis;
+      }
+      return {
+        matchScore: 86,
+        strengths: ["Backend experience"],
+        gaps: ["More cloud detail"],
+        suggestions: ["Add deployment outcomes"],
+      };
+    },
   },
 });
 
 const { default: profileRouter } = await import("../src/routes/profile.ts");
+const { default: jobsRouter } = await import("../src/routes/jobs.ts");
 
 function startTestServer(): Promise<{ server: Server; baseUrl: string }> {
   const app = express();
@@ -483,6 +692,7 @@ function startTestServer(): Promise<{ server: Server; baseUrl: string }> {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use("/api", profileRouter);
+  app.use("/api", jobsRouter);
   return new Promise((resolveServer) => {
     const server = createServer(app);
     server.listen(0, "127.0.0.1", () => {
@@ -516,10 +726,14 @@ test("persists CV Studio results across reloads and clears them for a replacemen
   cvRefinements.length = 0;
   refinementSequence = 0;
   cvVersions.length = 0;
+  matchAnalyses.length = 0;
   cvVersionSequence = 0;
   failNextProfileUpdate = false;
   failNextCvVersionDelete = false;
   failNextCvVersionPrune = false;
+  failNextMatchAnalysisDelete = false;
+  signalMatchAnalysisStarted = null;
+  waitBeforeFinishingMatchAnalysis = null;
   suggestionGenerationCount = 0;
   const fixture = await readFile(fixturePath);
   const { server, baseUrl } = await startTestServer();
@@ -876,6 +1090,182 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     assert.equal(failedPruneUploadResponse.status, 500);
     assert.deepEqual(snapshotProfileState(), profileBeforeFailedPrune);
     assert.deepEqual(snapshotVersionState(), versionsBeforeFailedPrune);
+
+    const currentProfileBeforePrivacyDelete = profiles.get(userId);
+    assert.ok(currentProfileBeforePrivacyDelete);
+    currentProfileBeforePrivacyDelete.cvScore = 64;
+    currentProfileBeforePrivacyDelete.cvIssues = auditResult.issues;
+
+    const otherUserId = "other-cv-user";
+    const otherProfile = newProfile(otherUserId);
+    otherProfile.cvText = "Another user's private CV";
+    otherProfile.cvEmbedding = [0.7, 0.8];
+    profiles.set(otherUserId, otherProfile);
+    cvAudits.push({
+      _id: { toString: () => "other-audit" },
+      userId: otherUserId,
+      cvUpdatedAt: new Date("2026-09-01T00:00:00.000Z"),
+      auditResult,
+      createdAt: new Date("2026-09-01T00:00:00.000Z"),
+    });
+    cvRefinements.push({
+      _id: { toString: () => "other-refinement" },
+      userId: otherUserId,
+      jobTitle: "Other role",
+      jobDescription: "Other description",
+      refinedText: "Other refined CV",
+      createdAt: new Date("2026-09-01T00:00:00.000Z"),
+    });
+    cvVersions.push({
+      _id: { toString: () => "other-version" },
+      userId: otherUserId,
+      cvText: "Another user's prior CV",
+      uploadedAt: new Date("2026-08-01T00:00:00.000Z"),
+    });
+    matchAnalyses.push(
+      {
+        _id: { toString: () => "current-match" },
+        userId,
+        matchScore: 88,
+      },
+      {
+        _id: { toString: () => "other-match" },
+        userId: otherUserId,
+        matchScore: 72,
+      },
+    );
+
+    const countsBeforeFailedPrivacyDelete = {
+      audits: cvAudits.length,
+      refinements: cvRefinements.length,
+      versions: cvVersions.length,
+      analyses: matchAnalyses.length,
+    };
+    const profileBeforeFailedPrivacyDelete = snapshotProfileState();
+    failNextMatchAnalysisDelete = true;
+    const failedPrivacyDeleteResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv",
+      { method: "DELETE" },
+    );
+    assert.equal(failedPrivacyDeleteResponse.status, 500);
+    assert.deepEqual(
+      snapshotProfileState(),
+      profileBeforeFailedPrivacyDelete,
+    );
+    assert.deepEqual(
+      {
+        audits: cvAudits.length,
+        refinements: cvRefinements.length,
+        versions: cvVersions.length,
+        analyses: matchAnalyses.length,
+      },
+      countsBeforeFailedPrivacyDelete,
+    );
+
+    let releaseMatchAnalysis: (() => void) | undefined;
+    const matchAnalysisStarted = new Promise<void>((resolveStarted) => {
+      signalMatchAnalysisStarted = resolveStarted;
+    });
+    waitBeforeFinishingMatchAnalysis = new Promise<void>((resolveRelease) => {
+      releaseMatchAnalysis = resolveRelease;
+    });
+    const inFlightMatchAnalysis = apiRequest(
+      baseUrl,
+      `/jobs/${matchJobId}/analyze`,
+    );
+    await matchAnalysisStarted;
+
+    const deleteCvDataResponse = await apiRequest(baseUrl, "/profile/cv", {
+      method: "DELETE",
+    });
+    assert.equal(deleteCvDataResponse.status, 200);
+    assert.deepEqual(await deleteCvDataResponse.json(), { success: true });
+
+    releaseMatchAnalysis?.();
+    const staleMatchAnalysisResponse = await inFlightMatchAnalysis;
+    assert.equal(staleMatchAnalysisResponse.status, 409);
+    signalMatchAnalysisStarted = null;
+    waitBeforeFinishingMatchAnalysis = null;
+
+    const deletedProfile = profiles.get(userId);
+    assert.ok(deletedProfile);
+    assert.equal(deletedProfile.cvText, undefined);
+    assert.equal(deletedProfile.cvEmbedding, undefined);
+    assert.equal(deletedProfile.cvUpdatedAt, undefined);
+    assert.equal(deletedProfile.cvScore, undefined);
+    assert.equal(deletedProfile.cvIssues, undefined);
+    assert.equal(deletedProfile.cvAudit, undefined);
+    assert.equal(deletedProfile.cvRefinement, undefined);
+    assert.equal(
+      cvAudits.some((record) => record.userId === userId),
+      false,
+    );
+    assert.equal(
+      cvRefinements.some((record) => record.userId === userId),
+      false,
+    );
+    assert.equal(
+      cvVersions.some((record) => record.userId === userId),
+      false,
+    );
+    assert.equal(
+      matchAnalyses.some((record) => record.userId === userId),
+      false,
+    );
+
+    assert.equal(profiles.get(otherUserId)?.cvText, otherProfile.cvText);
+    assert.equal(
+      cvAudits.some((record) => record.userId === otherUserId),
+      true,
+    );
+    assert.equal(
+      cvRefinements.some((record) => record.userId === otherUserId),
+      true,
+    );
+    assert.equal(
+      cvVersions.some((record) => record.userId === otherUserId),
+      true,
+    );
+    assert.equal(
+      matchAnalyses.some((record) => record.userId === otherUserId),
+      true,
+    );
+
+    const profileAfterPrivacyDeleteResponse = await apiRequest(
+      baseUrl,
+      "/profile",
+    );
+    const profileAfterPrivacyDelete =
+      await profileAfterPrivacyDeleteResponse.json();
+    assert.equal(profileAfterPrivacyDelete.cvText, null);
+    assert.equal(profileAfterPrivacyDelete.cvUpdatedAt, null);
+    assert.equal(profileAfterPrivacyDelete.cvAudit, undefined);
+    assert.equal(profileAfterPrivacyDelete.cvRefinement, undefined);
+
+    const versionsAfterPrivacyDelete = await (
+      await apiRequest(baseUrl, "/profile/cv/versions")
+    ).json();
+    assert.deepEqual(versionsAfterPrivacyDelete.versions, []);
+    const refinementsAfterPrivacyDelete = await (
+      await apiRequest(baseUrl, "/profile/cv/refinements")
+    ).json();
+    assert.deepEqual(refinementsAfterPrivacyDelete.refinements, []);
+    const auditAfterPrivacyDelete = await (
+      await apiRequest(baseUrl, "/profile/cv/audit")
+    ).json();
+    assert.equal(auditAfterPrivacyDelete.audit, null);
+
+    const repeatedDeleteResponse = await apiRequest(baseUrl, "/profile/cv", {
+      method: "DELETE",
+    });
+    assert.equal(repeatedDeleteResponse.status, 200);
+
+    const unauthorizedDeleteResponse = await fetch(
+      `${baseUrl}/profile/cv`,
+      { method: "DELETE" },
+    );
+    assert.equal(unauthorizedDeleteResponse.status, 401);
   } finally {
     await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
   }

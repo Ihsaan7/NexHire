@@ -21,6 +21,7 @@ import type {
 
 import type {
   CvAuditResult,
+  CvDeleteResult,
   CvFileInput,
   CvRefineInput,
   CvRefineResult,
@@ -363,6 +364,76 @@ export const useUploadCv = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getUploadCvMutationOptions(options));
+    }
+
+export const getDeleteCvDataUrl = () => {
+
+
+
+
+  return `/api/profile/cv`
+}
+
+/**
+ * @summary Permanently delete the current user's CV and all derived AI data
+ */
+export const deleteCvData = async ( options?: RequestInit): Promise<CvDeleteResult> => {
+
+  return customFetch<CvDeleteResult>(getDeleteCvDataUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCvDataMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCvData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCvData>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteCvData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCvData>>, void> = () => {
+
+
+          return  deleteCvData(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCvDataMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCvData>>>
+
+    export type DeleteCvDataMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Permanently delete the current user's CV and all derived AI data
+ */
+export const useDeleteCvData = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCvData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCvData>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteCvDataMutationOptions(options));
     }
 
 export const getGetCvVersionsUrl = () => {
