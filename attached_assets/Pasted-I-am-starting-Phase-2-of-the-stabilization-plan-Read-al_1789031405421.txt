@@ -1,0 +1,96 @@
+I am starting Phase 2 of the stabilization plan.
+Read all existing code carefully before making any changes.
+Fix and implement the items below one by one, waiting for my
+confirmation after each before moving to the next.
+
+--- FIX 0 (do this first, before anything else) ---
+
+NAVIGATION / LAYOUT NOT RE-RENDERING ON ROUTE CHANGE
+
+Problem: When navigating back to a previous route, the URL
+updates correctly but the screen still shows the old page's
+layout until a manual refresh.
+
+Root cause is likely one of these — check which applies:
+- Layout component is not re-mounting on route change because
+  it sits above the router outlet and holds stale state
+- useRouter().push() is being used but the receiving page
+  is not reacting to the new route params/pathname
+- A shared layout wrapper is caching the previous render
+
+Fix:
+- Add `key={pathname}` to the top-level layout or page
+  wrapper so React fully remounts on route change:
+  import { usePathname } from 'next/navigation';
+  const pathname = usePathname();
+  <div key={pathname}> ... </div>
+- If using Next.js App Router, verify that each page.tsx
+  is a proper Server or Client Component and not sharing
+  stale closure state with a parent layout
+- If using pages/ router, ensure _app.tsx passes
+  router.asPath as key to the Component:
+  <Component key={router.asPath} {...pageProps} />
+- After fix, verify: navigate forward, hit back button,
+  confirm screen updates immediately without refresh
+- Also verify no infinite re-render loops are introduced
+
+Tell me exactly what you found and what you changed before
+moving to Phase 2 items.
+
+--- PHASE 2: CV STUDIO PERSISTENCE ---
+
+2A. SAVE AUDIT RESULTS
+- After every CV audit, save the full result to the database:
+  collection: cvAudits
+  fields: userId, auditResult (full JSON), createdAt
+- On CV Studio page load, fetch the latest saved audit
+  and display it without re-running AI
+- Show timestamp: "Last audited: X days ago"
+- Only re-run audit when user explicitly clicks "Re-analyse"
+
+2B. SAVE AI SUGGESTIONS
+- Save the quick AI suggestions returned after CV upload
+  to the same cvAudits record (add a suggestions field)
+- Display saved suggestions on page load without re-calling AI
+
+2C. SAVE REFINED CV VERSIONS
+- After every job-specific CV refinement, save to database:
+  collection: cvRefinements
+  fields: userId, jobId (or jobTitle if no jobId),
+          jobDescription (snippet), refinedText, createdAt
+- Show a "Saved Refinements" list in CV Studio UI
+  (job title + date — click to view the refined text)
+- Limit to last 10 refinements per user to stay within
+  free MongoDB tier
+
+2D. CV VERSION HISTORY
+- Every time user uploads a new CV, save the previous CV
+  text as a version before overwriting:
+  collection: cvVersions
+  fields: userId, cvText, uploadedAt
+- Show a "Previous CVs" list in CV Studio (date + first
+  50 chars of text — click to restore)
+- Limit to last 5 versions per user
+
+2E. DELETE CV + PRIVACY CONTROLS
+- Add a "Delete my CV data" option in CV Studio settings
+- On confirm, delete from database:
+  - profiles.cvText
+  - profiles.cvEmbedding
+  - profiles.cvScore
+  - profiles.cvIssues
+  - All cvAudits records for this user
+  - All cvRefinements records for this user
+  - All cvVersions records for this user
+  - All matchAnalyses records for this user
+- Show confirmation dialog before deleting:
+  "This will permanently delete your CV and all AI
+   analysis history. This cannot be undone."
+- After deletion, redirect to CV upload screen
+
+--- RULES ---
+- Fix one item at a time (Fix 0 first, then 2A, 2B, 2C, 2D, 2E)
+- Show me what changed after each item, wait for my OK
+- Do not add PDF/DOCX export yet — that is Phase 3
+- Do not change any UI design or add new features outside this list
+- Tell me clearly when all Phase 2 items are done

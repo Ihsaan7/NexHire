@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { AnimatePresence, motion } from "framer-motion";
 import { ThemeProvider } from "@/context/theme";
 import { setAuthTokenGetter, useGetProfile } from "@workspace/api-client-react";
 
@@ -165,16 +164,19 @@ function Home() {
 }
 
 function HomeRedirect() {
-  return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        <Home />
-      </Show>
-    </>
-  );
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Loading terminal…
+        </p>
+      </div>
+    );
+  }
+
+  return isSignedIn ? <Redirect to="/dashboard" /> : <Home />;
 }
 
 function OnboardingGuard({ component: Component }: { component: any }) {
@@ -247,32 +249,30 @@ function ClerkProviderWithRoutes() {
       <AuthTokenSetter />
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <AnimatePresence mode="wait">
-            <Switch location={location} key={location}>
-              <Route path="/" component={HomeRedirect} />
-              <Route path="/sign-in/*?" component={SignInPage} />
-              <Route path="/sign-up/*?" component={SignUpPage} />
-              <Route path="/onboarding">
-                <Show when="signed-in">
-                  <Onboarding />
-                </Show>
-                <Show when="signed-out">
-                  <Redirect to="/" />
-                </Show>
-              </Route>
-              
-              <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
-              <Route path="/jobs"><ProtectedRoute component={Jobs} /></Route>
-              <Route path="/jobs/:id"><ProtectedRoute component={JobDetail} /></Route>
-              <Route path="/gigs"><ProtectedRoute component={Gigs} /></Route>
-              <Route path="/tracker"><ProtectedRoute component={Tracker} /></Route>
-              <Route path="/cv"><ProtectedRoute component={CV} /></Route>
-              <Route path="/practice"><ProtectedRoute component={Practice} /></Route>
-              <Route path="/settings"><ProtectedRoute component={Settings} /></Route>
+          <Switch location={location} key={location}>
+            <Route path="/" component={HomeRedirect} />
+            <Route path="/sign-in/*?" component={SignInPage} />
+            <Route path="/sign-up/*?" component={SignUpPage} />
+            <Route path="/onboarding">
+              <Show when="signed-in">
+                <Onboarding />
+              </Show>
+              <Show when="signed-out">
+                <Redirect to="/" />
+              </Show>
+            </Route>
 
-              <Route><NotFound /></Route>
-            </Switch>
-          </AnimatePresence>
+            <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
+            <Route path="/jobs"><ProtectedRoute component={Jobs} /></Route>
+            <Route path="/jobs/:id"><ProtectedRoute component={JobDetail} /></Route>
+            <Route path="/gigs"><ProtectedRoute component={Gigs} /></Route>
+            <Route path="/tracker"><ProtectedRoute component={Tracker} /></Route>
+            <Route path="/cv"><ProtectedRoute component={CV} /></Route>
+            <Route path="/practice"><ProtectedRoute component={Practice} /></Route>
+            <Route path="/settings"><ProtectedRoute component={Settings} /></Route>
+
+            <Route><NotFound /></Route>
+          </Switch>
         </TooltipProvider>
       </QueryClientProvider>
     </ClerkProvider>

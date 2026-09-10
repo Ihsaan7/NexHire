@@ -7,3 +7,4 @@
 - [CV Studio regression coverage](cv-studio-integration.md) — test CV mutations through HTTP with fresh profile reads; isolate auth, Mongo, and Gemini
 - [Background sync status](sync-status.md) — shared lifecycle prevents duplicate runs; UI polls only while active and refreshes results on completion
 - [Onboarding completion](onboarding-completion.md) — infer setup from experience plus one target sector; CV stays optional and no extra profile flag is needed
+- [Wouter route transitions](wouter-route-transitions.md) — never wrap the keyed Switch in AnimatePresence wait mode; auth-dependent roots need an explicit loading state
