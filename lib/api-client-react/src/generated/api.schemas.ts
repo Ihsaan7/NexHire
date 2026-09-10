@@ -90,6 +90,21 @@ export interface CvUploadResult {
   cvUpdatedAt: string;
 }
 
+export interface CvVersionRecord {
+  id: string;
+  cvText: string;
+  uploadedAt: string;
+}
+
+export interface CvVersionListResponse {
+  versions: CvVersionRecord[];
+}
+
+export interface CvRestoreResult {
+  success: boolean;
+  cvUpdatedAt: string;
+}
+
 export interface CvSuggestions {
   suggestions: string[];
   generatedAt: string;

@@ -9,6 +9,9 @@ import {
   useRefineCv,
   useGetCvRefinements,
   getGetCvRefinementsQueryKey,
+  useGetCvVersions,
+  getGetCvVersionsQueryKey,
+  useRestoreCvVersion,
   type CvAuditResult,
   type CvRefinementRecord,
   type CvRefineResult,
@@ -164,6 +167,19 @@ export default function CV() {
       ],
     },
   });
+  const {
+    data: cvVersions,
+    isLoading: loadingCvVersions,
+    refetch: refetchCvVersions,
+  } = useGetCvVersions({
+    query: {
+      enabled: !!profile,
+      queryKey: [
+        ...getGetCvVersionsQueryKey(),
+        profile?.userId ?? null,
+      ],
+    },
+  });
   const uploadCv = useUploadCv();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -228,6 +244,37 @@ export default function CV() {
       },
     },
   });
+  const restoreCvVersion = useRestoreCvVersion({
+    mutation: {
+      onSuccess: async () => {
+        setAudit(null);
+        setAuditGeneratedAt(null);
+        setRefined(null);
+        setSelectedRefinementId(null);
+        setJobTitle("");
+        setJobDescription("");
+        queryClient.removeQueries({
+          queryKey: getGetLatestCvAuditQueryKey(),
+        });
+        queryClient.removeQueries({
+          queryKey: getGetCvSuggestionsQueryKey(),
+        });
+        await Promise.all([refetchProfile(), refetchCvVersions()]);
+        toast({
+          title: "Previous CV restored",
+          description: "Your replaced CV was saved in Previous CVs.",
+        });
+      },
+      onError: async (error) => {
+        await Promise.all([refetchProfile(), refetchCvVersions()]);
+        toast({
+          title: "Restore failed",
+          description: getApiErrorMessage(error, "Please try again."),
+          variant: "destructive",
+        });
+      },
+    },
+  });
   const auditing = auditCv.isPending;
   const refining = refineCv.isPending;
 
@@ -263,7 +310,7 @@ export default function CV() {
         setJobDescription("");
         setSelectedRefinementId(null);
         toast({ title: "CV uploaded successfully", description: "Your data has been extracted." });
-        await refetchProfile();
+        await Promise.all([refetchProfile(), refetchCvVersions()]);
       },
       onError: (error) => toast({
         title: "Upload failed",
@@ -291,6 +338,14 @@ export default function CV() {
   const viewSavedRefinement = (saved: CvRefinementRecord) => {
     setSelectedRefinementId(saved.id);
     setRefined({ refinedCv: saved.refinedText, changes: [] });
+  };
+
+  const restorePreviousCv = (versionId: string) => {
+    const confirmed = window.confirm(
+      "Restore this CV? Your current CV will be saved in Previous CVs first.",
+    );
+    if (!confirmed) return;
+    restoreCvVersion.mutate({ versionId });
   };
 
   const copyRefined = () => {
@@ -376,6 +431,49 @@ export default function CV() {
                   </div>
                 </div>
               )}
+
+              <div className="border border-border bg-card/30">
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    Previous CVs
+                  </p>
+                </div>
+                {loadingCvVersions ? (
+                  <div className="p-4 space-y-2">
+                    {[...Array(2)].map((_, i) => (
+                      <Skeleton key={i} className="h-14 w-full rounded-none" />
+                    ))}
+                  </div>
+                ) : cvVersions?.versions.length ? (
+                  <div className="divide-y divide-border">
+                    {cvVersions.versions.map((version) => (
+                      <button
+                        key={version.id}
+                        type="button"
+                        onClick={() => restorePreviousCv(version.id)}
+                        disabled={restoreCvVersion.isPending}
+                        className="w-full px-4 py-3 text-left transition-colors hover:bg-primary/5 disabled:opacity-50"
+                      >
+                        <span className="flex items-center justify-between gap-4">
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {format(new Date(version.uploadedAt), "PP")}
+                          </span>
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
+                            Restore
+                          </span>
+                        </span>
+                        <span className="block mt-1 text-xs text-muted-foreground truncate">
+                          {version.cvText.replace(/\s+/g, " ").slice(0, 50)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="p-4 font-mono text-xs text-muted-foreground">
+                    No previous CVs yet.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-6">

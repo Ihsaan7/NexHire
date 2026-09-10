@@ -97,6 +97,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /profile/cv/versions:
+    get:
+      operationId: getCvVersions
+      tags: [profile]
+      summary: Get the latest five previous CV versions for the current user
+      responses:
+        "200":
+          description: Previous CV versions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvVersionListResponse"
+
+  /profile/cv/versions/{versionId}/restore:
+    post:
+      operationId: restoreCvVersion
+      tags: [profile]
+      summary: Restore a previous CV version and archive the current CV
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Previous CV restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvRestoreResult"
+        "404":
+          description: CV version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /profile/cv/suggestions:
     get:
       operationId: getCvSuggestions
@@ -700,6 +738,41 @@ components:
       required:
         - success
         - cvTextLength
+        - cvUpdatedAt
+
+    CvVersionRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        cvText:
+          type: string
+        uploadedAt:
+          type: string
+      required:
+        - id
+        - cvText
+        - uploadedAt
+
+    CvVersionListResponse:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CvVersionRecord"
+      required:
+        - versions
+
+    CvRestoreResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        cvUpdatedAt:
+          type: string
+      required:
+        - success
         - cvUpdatedAt
 
     CvSuggestions:

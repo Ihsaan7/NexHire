@@ -5,21 +5,25 @@ import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
 import { CvAudit } from "../models/CvAudit";
 import { CvRefinement } from "../models/CvRefinement";
+import { CvVersion } from "../models/CvVersion";
 import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini";
 import { logger } from "../lib/logger";
 import {
   AuditCvResponse,
   GetLatestCvAuditResponse,
   GetCvRefinementsResponse,
+  GetCvVersionsResponse,
   GetCvSuggestionsResponse,
   GetProfileResponse,
   RefineCvBody,
   RefineCvResponse,
+  RestoreCvVersionResponse,
   UpdateProfileBody,
   UpdateProfileResponse,
   UploadCvResponse,
 } from "@workspace/api-zod";
 import { sendInternalServerError, sendValidationError } from "../lib/http";
+import type { ClientSession, Connection } from "mongoose";
 
 // Use memory storage — never write CV to disk
 const upload = multer({
@@ -49,6 +53,9 @@ const suggestionFlights = new Map<
   Promise<SuggestionGenerationOutcome>
 >();
 const refinementWriteTails = new Map<string, Promise<void>>();
+const cvMutationTails = new Map<string, Promise<void>>();
+
+class CvMutationConflictError extends Error {}
 
 async function serializeRefinementWrite<T>(
   userId: string,
@@ -68,6 +75,56 @@ async function serializeRefinementWrite<T>(
     if (refinementWriteTails.get(userId) === tail) {
       refinementWriteTails.delete(userId);
     }
+  }
+}
+
+async function serializeCvMutation<T>(
+  userId: string,
+  write: () => Promise<T>,
+): Promise<T> {
+  const previous = cvMutationTails.get(userId) ?? Promise.resolve();
+  const operation = previous.catch(() => undefined).then(write);
+  const tail = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  cvMutationTails.set(userId, tail);
+
+  try {
+    return await operation;
+  } finally {
+    if (cvMutationTails.get(userId) === tail) {
+      cvMutationTails.delete(userId);
+    }
+  }
+}
+
+async function runInTransaction<T>(
+  connection: Connection,
+  operation: (session: ClientSession) => Promise<T>,
+): Promise<T> {
+  const session = await connection.startSession();
+  try {
+    const result = await session.withTransaction(() => operation(session));
+    if (result === undefined) {
+      throw new Error("CV transaction completed without a result");
+    }
+    return result;
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function pruneCvVersions(userId: string, session: ClientSession) {
+  const staleVersions = await CvVersion.find({ userId }, null, { session })
+    .sort({ uploadedAt: -1, _id: -1 })
+    .skip(5)
+    .select({ _id: 1 });
+  if (staleVersions.length > 0) {
+    await CvVersion.deleteMany({
+      userId,
+      _id: { $in: staleVersions.map((version) => version._id) },
+    }, { session });
   }
 }
 
@@ -188,7 +245,7 @@ router.post(
   upload.single("file"),
   async (req, res) => {
     try {
-      await connectMongo();
+      const connection = await connectMongo();
       const userId = (req as any).userId as string;
 
       if (!req.file) {
@@ -220,14 +277,62 @@ router.post(
       const cvEmbedding = await generateEmbedding(cvText.slice(0, 8000));
       const cvUpdatedAt = new Date();
 
-      await Profile.findOneAndUpdate(
-        { userId },
-        {
-          $set: { cvText, cvEmbedding, cvUpdatedAt },
-          $unset: { cvAudit: 1, cvRefinement: 1 },
-        },
-        { upsert: true },
-      );
+      let updatedProfile;
+      try {
+        updatedProfile = await serializeCvMutation(userId, () =>
+          runInTransaction(connection, async (session) => {
+        const currentProfile = await Profile.findOne(
+          { userId },
+          null,
+          { session },
+        );
+        if (currentProfile?.cvText) {
+          await CvVersion.create([{
+            userId,
+            cvText: currentProfile.cvText,
+            uploadedAt:
+              currentProfile.cvUpdatedAt ??
+              currentProfile.updatedAt ??
+              cvUpdatedAt,
+          }], { session });
+        }
+
+        const updated = await Profile.findOneAndUpdate(
+          {
+            userId,
+            ...(currentProfile?.cvText
+              ? {
+                  cvText: currentProfile.cvText,
+                  ...(currentProfile.cvUpdatedAt
+                    ? { cvUpdatedAt: currentProfile.cvUpdatedAt }
+                    : {
+                        $or: [
+                          { cvUpdatedAt: { $exists: false } },
+                          { cvUpdatedAt: null },
+                        ],
+                      }),
+                }
+              : {}),
+          },
+          {
+            $set: { cvText, cvEmbedding, cvUpdatedAt },
+            $unset: { cvAudit: 1, cvRefinement: 1 },
+          },
+          { new: true, upsert: !currentProfile, session },
+        );
+        if (!updated) throw new CvMutationConflictError();
+
+        await pruneCvVersions(userId, session);
+        return updated;
+          }),
+        );
+      } catch (err) {
+        if (!(err instanceof CvMutationConflictError)) throw err;
+        res.status(409).json({
+          error: "The current CV changed during upload. Please try again.",
+        });
+        return;
+      }
 
       // Do NOT log cvText
       logger.info({ userId, cvTextLength: cvText.length }, "CV uploaded");
@@ -239,6 +344,137 @@ router.post(
       }));
     } catch (err) {
       sendInternalServerError(req, res, err, "uploadCv error");
+    }
+  },
+);
+
+router.get("/profile/cv/versions", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+    const userId = (req as any).userId as string;
+    const versions = await CvVersion.find({ userId })
+      .sort({ uploadedAt: -1, _id: -1 })
+      .limit(5);
+
+    res.json(
+      GetCvVersionsResponse.parse({
+        versions: versions.map((version) => ({
+          id: version._id.toString(),
+          cvText: version.cvText,
+          uploadedAt: version.uploadedAt.toISOString(),
+        })),
+      }),
+    );
+  } catch (err) {
+    sendInternalServerError(req, res, err, "getCvVersions error");
+  }
+});
+
+router.post(
+  "/profile/cv/versions/:versionId/restore",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const connection = await connectMongo();
+      const userId = (req as any).userId as string;
+      const versionForEmbedding = await CvVersion.findOne({
+        _id: req.params.versionId,
+        userId,
+      });
+      if (!versionForEmbedding) {
+        res.status(404).json({ error: "CV version not found" });
+        return;
+      }
+      const restoredEmbedding = await generateEmbedding(
+        versionForEmbedding.cvText.slice(0, 8000),
+      );
+
+      let outcome;
+      try {
+        outcome = await serializeCvMutation(userId, () =>
+          runInTransaction(connection, async (session) => {
+        const version = await CvVersion.findOne({
+          _id: req.params.versionId,
+          userId,
+        }, null, { session });
+        if (!version) return { status: "not-found" as const };
+
+        const currentProfile = await Profile.findOne(
+          { userId },
+          null,
+          { session },
+        );
+        const cvUpdatedAt = new Date();
+
+        if (currentProfile?.cvText) {
+          await CvVersion.create([{
+            userId,
+            cvText: currentProfile.cvText,
+            uploadedAt:
+              currentProfile.cvUpdatedAt ??
+              currentProfile.updatedAt ??
+              cvUpdatedAt,
+          }], { session });
+        }
+
+        const restoredProfile = await Profile.findOneAndUpdate(
+          {
+            userId,
+            ...(currentProfile?.cvText
+              ? {
+                  cvText: currentProfile.cvText,
+                  ...(currentProfile.cvUpdatedAt
+                    ? { cvUpdatedAt: currentProfile.cvUpdatedAt }
+                    : {
+                        $or: [
+                          { cvUpdatedAt: { $exists: false } },
+                          { cvUpdatedAt: null },
+                        ],
+                      }),
+                }
+              : {}),
+          },
+          {
+            $set: {
+              cvText: version.cvText,
+              cvEmbedding: restoredEmbedding,
+              cvUpdatedAt,
+            },
+            $unset: { cvAudit: 1, cvRefinement: 1 },
+          },
+          { new: true, session },
+        );
+        if (!restoredProfile) throw new CvMutationConflictError();
+
+        await CvVersion.deleteOne({ _id: version._id, userId }, { session });
+        await pruneCvVersions(userId, session);
+        return { status: "restored" as const, cvUpdatedAt };
+          }),
+        );
+      } catch (err) {
+        if (!(err instanceof CvMutationConflictError)) throw err;
+        res.status(409).json({
+          error: "The current CV changed during restore. Please try again.",
+        });
+        return;
+      }
+
+      if (outcome.status === "not-found") {
+        res.status(404).json({ error: "CV version not found" });
+        return;
+      }
+      res.json(
+        RestoreCvVersionResponse.parse({
+          success: true,
+          cvUpdatedAt: outcome.cvUpdatedAt.toISOString(),
+        }),
+      );
+    } catch (err) {
+      if ((err as { name?: string })?.name === "CastError") {
+        res.status(404).json({ error: "CV version not found" });
+        return;
+      }
+      sendInternalServerError(req, res, err, "restoreCvVersion error");
     }
   },
 );

@@ -25,8 +25,10 @@ import type {
   CvRefineInput,
   CvRefineResult,
   CvRefinementListResponse,
+  CvRestoreResult,
   CvSuggestions,
   CvUploadResult,
+  CvVersionListResponse,
   ErrorResponse,
   GetMatchedJobsParams,
   GigListResponse,
@@ -361,6 +363,153 @@ export const useUploadCv = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getUploadCvMutationOptions(options));
+    }
+
+export const getGetCvVersionsUrl = () => {
+
+
+
+
+  return `/api/profile/cv/versions`
+}
+
+/**
+ * @summary Get the latest five previous CV versions for the current user
+ */
+export const getCvVersions = async ( options?: RequestInit): Promise<CvVersionListResponse> => {
+
+  return customFetch<CvVersionListResponse>(getGetCvVersionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCvVersionsQueryKey = () => {
+    return [
+    `/api/profile/cv/versions`
+    ] as const;
+    }
+
+
+export const getGetCvVersionsQueryOptions = <TData = Awaited<ReturnType<typeof getCvVersions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvVersions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCvVersionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCvVersions>>> = ({ signal }) => getCvVersions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCvVersions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCvVersionsQueryResult = NonNullable<Awaited<ReturnType<typeof getCvVersions>>>
+export type GetCvVersionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the latest five previous CV versions for the current user
+ */
+
+export function useGetCvVersions<TData = Awaited<ReturnType<typeof getCvVersions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvVersions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCvVersionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRestoreCvVersionUrl = (versionId: string,) => {
+
+
+
+
+  return `/api/profile/cv/versions/${versionId}/restore`
+}
+
+/**
+ * @summary Restore a previous CV version and archive the current CV
+ */
+export const restoreCvVersion = async (versionId: string, options?: RequestInit): Promise<CvRestoreResult> => {
+
+  return customFetch<CvRestoreResult>(getRestoreCvVersionUrl(versionId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRestoreCvVersionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreCvVersion>>, TError,{versionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreCvVersion>>, TError,{versionId: string}, TContext> => {
+
+const mutationKey = ['restoreCvVersion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreCvVersion>>, {versionId: string}> = (props) => {
+          const {versionId} = props ?? {};
+
+          return  restoreCvVersion(versionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreCvVersionMutationResult = NonNullable<Awaited<ReturnType<typeof restoreCvVersion>>>
+
+    export type RestoreCvVersionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Restore a previous CV version and archive the current CV
+ */
+export const useRestoreCvVersion = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreCvVersion>>, TError,{versionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof restoreCvVersion>>,
+        TError,
+        {versionId: string},
+        TContext
+      > => {
+      return useMutation(getRestoreCvVersionMutationOptions(options));
     }
 
 export const getGetCvSuggestionsUrl = () => {

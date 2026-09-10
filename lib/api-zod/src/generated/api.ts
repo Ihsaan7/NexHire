@@ -133,6 +133,31 @@ export const UploadCvResponse = zod.object({
 
 
 /**
+ * @summary Get the latest five previous CV versions for the current user
+ */
+export const GetCvVersionsResponse = zod.object({
+  "versions": zod.array(zod.object({
+  "id": zod.string(),
+  "cvText": zod.string(),
+  "uploadedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Restore a previous CV version and archive the current CV
+ */
+export const RestoreCvVersionParams = zod.object({
+  "versionId": zod.coerce.string()
+})
+
+export const RestoreCvVersionResponse = zod.object({
+  "success": zod.boolean(),
+  "cvUpdatedAt": zod.string()
+})
+
+
+/**
  * @summary Get AI suggestions to improve the CV
  */
 export const GetCvSuggestionsResponse = zod.object({

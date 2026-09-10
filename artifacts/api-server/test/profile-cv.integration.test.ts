@@ -70,6 +70,16 @@ const cvRefinements: {
   createdAt: Date;
 }[] = [];
 let refinementSequence = 0;
+const cvVersions: {
+  _id: { toString: () => string };
+  userId: string;
+  cvText: string;
+  uploadedAt: Date;
+}[] = [];
+let cvVersionSequence = 0;
+let failNextProfileUpdate = false;
+let failNextCvVersionDelete = false;
+let failNextCvVersionPrune = false;
 
 function clone<T>(value: T): T {
   if (value === undefined) return value;
@@ -143,6 +153,10 @@ const fakeProfileModel = {
       $unset?: Record<string, unknown>;
     },
   ) {
+    if (failNextProfileUpdate) {
+      failNextProfileUpdate = false;
+      return Promise.reject(new Error("Injected profile update failure"));
+    }
     const profile = getOrCreate(query.userId);
     applyUpdate(profile, update);
     return Promise.resolve(clone(profile));
@@ -271,6 +285,95 @@ const fakeCvRefinementModel = {
   },
 };
 
+const fakeCvVersionModel = {
+  create(
+    input:
+      | { userId: string; cvText: string; uploadedAt: Date }
+      | { userId: string; cvText: string; uploadedAt: Date }[],
+  ) {
+    const wasArray = Array.isArray(input);
+    const versionInput = wasArray ? input[0] : input;
+    assert.ok(versionInput);
+    cvVersionSequence += 1;
+    const id = `version-${cvVersionSequence}`;
+    const record = {
+      ...clone(versionInput),
+      _id: { toString: () => id },
+    };
+    cvVersions.push(record);
+    return Promise.resolve(wasArray ? [clone(record)] : clone(record));
+  },
+  find(query: { userId: string }) {
+    const sorted = () =>
+      cvVersions
+        .filter((version) => version.userId === query.userId)
+        .sort((a, b) => {
+          const dateDifference =
+            b.uploadedAt.getTime() - a.uploadedAt.getTime();
+          if (dateDifference !== 0) return dateDifference;
+          return b._id.toString().localeCompare(a._id.toString());
+        });
+    return {
+      sort: () => ({
+        limit: (limit: number) =>
+          Promise.resolve(sorted().slice(0, limit).map(clone)),
+        skip: (skip: number) => ({
+          select: () => Promise.resolve(sorted().slice(skip).map(clone)),
+        }),
+      }),
+    };
+  },
+  findOne(query: { _id: string; userId: string }) {
+    const version = cvVersions.find(
+      (candidate) =>
+        candidate.userId === query.userId &&
+        candidate._id.toString() === query._id,
+    );
+    return Promise.resolve(version ? clone(version) : null);
+  },
+  deleteOne(query: {
+    _id: { toString: () => string };
+    userId: string;
+  }) {
+    if (failNextCvVersionDelete) {
+      failNextCvVersionDelete = false;
+      return Promise.reject(new Error("Injected CV version delete failure"));
+    }
+    const index = cvVersions.findIndex(
+      (version) =>
+        version.userId === query.userId &&
+        version._id.toString() === query._id.toString(),
+    );
+    if (index >= 0) cvVersions.splice(index, 1);
+    return Promise.resolve({
+      acknowledged: true,
+      deletedCount: index >= 0 ? 1 : 0,
+    });
+  },
+  deleteMany(query: {
+    userId: string;
+    _id: { $in: { toString: () => string }[] };
+  }) {
+    if (failNextCvVersionPrune) {
+      failNextCvVersionPrune = false;
+      return Promise.reject(new Error("Injected CV version prune failure"));
+    }
+    const ids = new Set(query._id.$in.map((id) => id.toString()));
+    let deletedCount = 0;
+    for (let index = cvVersions.length - 1; index >= 0; index -= 1) {
+      const version = cvVersions[index];
+      if (
+        version?.userId === query.userId &&
+        ids.has(version._id.toString())
+      ) {
+        cvVersions.splice(index, 1);
+        deletedCount += 1;
+      }
+    }
+    return Promise.resolve({ acknowledged: true, deletedCount });
+  },
+};
+
 const auditResult: Audit = {
   score: 82,
   issues: [
@@ -315,7 +418,30 @@ mock.module(moduleUrl("../src/routes/auth.ts"), {
 });
 mock.module(moduleUrl("../src/lib/mongodb.ts"), {
   namedExports: {
-    connectMongo: async () => ({ readyState: 1 }),
+    connectMongo: async () => ({
+      readyState: 1,
+      startSession: async () => ({
+        withTransaction: async <T>(operation: () => Promise<T>) => {
+          const profileSnapshot = new Map(
+            [...profiles].map(([key, value]) => [key, clone(value)]),
+          );
+          const versionSnapshot = cvVersions.map(clone);
+          const versionSequenceSnapshot = cvVersionSequence;
+          try {
+            return await operation();
+          } catch (error) {
+            profiles.clear();
+            for (const [key, value] of profileSnapshot) {
+              profiles.set(key, value);
+            }
+            cvVersions.splice(0, cvVersions.length, ...versionSnapshot);
+            cvVersionSequence = versionSequenceSnapshot;
+            throw error;
+          }
+        },
+        endSession: async () => undefined,
+      }),
+    }),
   },
 });
 mock.module(moduleUrl("../src/models/Profile.ts"), {
@@ -326,6 +452,9 @@ mock.module(moduleUrl("../src/models/CvAudit.ts"), {
 });
 mock.module(moduleUrl("../src/models/CvRefinement.ts"), {
   namedExports: { CvRefinement: fakeCvRefinementModel },
+});
+mock.module(moduleUrl("../src/models/CvVersion.ts"), {
+  namedExports: { CvVersion: fakeCvVersionModel },
 });
 mock.module(moduleUrl("../src/lib/gemini.ts"), {
   namedExports: {
@@ -386,6 +515,11 @@ test("persists CV Studio results across reloads and clears them for a replacemen
   cvAudits.length = 0;
   cvRefinements.length = 0;
   refinementSequence = 0;
+  cvVersions.length = 0;
+  cvVersionSequence = 0;
+  failNextProfileUpdate = false;
+  failNextCvVersionDelete = false;
+  failNextCvVersionPrune = false;
   suggestionGenerationCount = 0;
   const fixture = await readFile(fixturePath);
   const { server, baseUrl } = await startTestServer();
@@ -538,6 +672,11 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     );
     assert.equal(cvRefinements.length, 10);
 
+    const profileBeforeReplacement = profiles.get(userId);
+    assert.ok(profileBeforeReplacement);
+    profileBeforeReplacement.cvText =
+      "ORIGINAL CV VERSION\nBackend engineer with five years of experience.";
+
     const replacement = new FormData();
     replacement.append(
       "file",
@@ -555,6 +694,50 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     assert.match(replacementProfile.cvText, /IHSAAN ULLAH/);
     assert.equal(replacementProfile.cvAudit, undefined);
     assert.equal(replacementProfile.cvRefinement, undefined);
+
+    const versionsAfterReplacementResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/versions",
+    );
+    assert.equal(versionsAfterReplacementResponse.status, 200);
+    const versionsAfterReplacement =
+      await versionsAfterReplacementResponse.json();
+    assert.equal(versionsAfterReplacement.versions.length, 1);
+    assert.match(
+      versionsAfterReplacement.versions[0].cvText,
+      /ORIGINAL CV VERSION/,
+    );
+
+    const restoreResponse = await apiRequest(
+      baseUrl,
+      `/profile/cv/versions/${versionsAfterReplacement.versions[0].id}/restore`,
+      { method: "POST" },
+    );
+    assert.equal(restoreResponse.status, 200);
+    const restoredResult = await restoreResponse.json();
+    assert.equal(restoredResult.success, true);
+    assert.ok(restoredResult.cvUpdatedAt);
+
+    const profileAfterRestoreResponse = await apiRequest(baseUrl, "/profile");
+    const profileAfterRestore = await profileAfterRestoreResponse.json();
+    assert.match(profileAfterRestore.cvText, /ORIGINAL CV VERSION/);
+    assert.equal(profileAfterRestore.cvAudit, undefined);
+    assert.equal(profileAfterRestore.cvRefinement, undefined);
+
+    const versionsAfterRestoreResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/versions",
+    );
+    const versionsAfterRestore = await versionsAfterRestoreResponse.json();
+    assert.equal(versionsAfterRestore.versions.length, 1);
+    assert.match(versionsAfterRestore.versions[0].cvText, /IHSAAN ULLAH/);
+
+    const missingVersionResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/versions/version-owned-by-another-user/restore",
+      { method: "POST" },
+    );
+    assert.equal(missingVersionResponse.status, 404);
 
     const replacementAuditResponse = await apiRequest(
       baseUrl,
@@ -610,6 +793,89 @@ test("persists CV Studio results across reloads and clears them for a replacemen
       legacySuggestions,
     );
     assert.equal(suggestionGenerationCount, 3);
+
+    for (let index = 0; index < 6; index += 1) {
+      const cappedUpload = new FormData();
+      cappedUpload.append(
+        "file",
+        new Blob([fixture], { type: "application/pdf" }),
+        `replacement-${index}.pdf`,
+      );
+      const cappedUploadResponse = await apiRequest(baseUrl, "/profile/cv", {
+        method: "POST",
+        body: cappedUpload,
+      });
+      assert.equal(cappedUploadResponse.status, 200);
+    }
+
+    const cappedVersionsResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/versions",
+    );
+    const cappedVersions = await cappedVersionsResponse.json();
+    assert.equal(cappedVersions.versions.length, 5);
+    assert.equal(cvVersions.length, 5);
+
+    const snapshotVersionState = () =>
+      cvVersions.map((version) => ({
+        id: version._id.toString(),
+        cvText: version.cvText,
+        uploadedAt: version.uploadedAt.toISOString(),
+      }));
+    const snapshotProfileState = () => {
+      const profile = profiles.get(userId);
+      assert.ok(profile);
+      const { _id: _ignoredId, ...data } = profile;
+      return structuredClone(data);
+    };
+
+    const profileBeforeFailedUpload = snapshotProfileState();
+    const versionsBeforeFailedUpload = snapshotVersionState();
+    failNextProfileUpdate = true;
+    const failedProfileUpload = new FormData();
+    failedProfileUpload.append(
+      "file",
+      new Blob([fixture], { type: "application/pdf" }),
+      "profile-failure.pdf",
+    );
+    const failedProfileUploadResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv",
+      { method: "POST", body: failedProfileUpload },
+    );
+    assert.equal(failedProfileUploadResponse.status, 500);
+    assert.deepEqual(snapshotProfileState(), profileBeforeFailedUpload);
+    assert.deepEqual(snapshotVersionState(), versionsBeforeFailedUpload);
+
+    const profileBeforeFailedDelete = snapshotProfileState();
+    const versionsBeforeFailedDelete = snapshotVersionState();
+    failNextCvVersionDelete = true;
+    const failedDeleteRestoreResponse = await apiRequest(
+      baseUrl,
+      `/profile/cv/versions/${cvVersions[0]?._id.toString()}/restore`,
+      { method: "POST" },
+    );
+    assert.equal(failedDeleteRestoreResponse.status, 500);
+    assert.deepEqual(snapshotProfileState(), profileBeforeFailedDelete);
+    assert.deepEqual(snapshotVersionState(), versionsBeforeFailedDelete);
+
+    const profileBeforeFailedPrune = snapshotProfileState();
+    const versionsBeforeFailedPrune = snapshotVersionState();
+    failNextCvVersionPrune = true;
+    const failedPruneUpload = new FormData();
+    failedPruneUpload.append(
+      "file",
+      new Blob([fixture], { type: "application/pdf" }),
+      "prune-failure.pdf",
+    );
+    const failedPruneUploadResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv",
+      { method: "POST", body: failedPruneUpload },
+    );
+    assert.equal(failedPruneUploadResponse.status, 500);
+    assert.deepEqual(snapshotProfileState(), profileBeforeFailedPrune);
+    assert.deepEqual(snapshotVersionState(), versionsBeforeFailedPrune);
   } finally {
     await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
   }

@@ -10,3 +10,4 @@
 - [Wouter route transitions](wouter-route-transitions.md) — never wrap the keyed Switch in AnimatePresence wait mode; auth-dependent roots need an explicit loading state
 - [CV audit version isolation](cv-audit-versioning.md) — saved audits bind to an exact CV version; queries and client caches must also be user-scoped
 - [CV refinement retention](cv-refinement-retention.md) — retain 10 per user with deterministic ordering and serialized create-plus-prune writes
+- [CV version transactions](cv-version-transactions.md) — replace and restore CVs as atomic history swaps; retain five with deterministic ordering
