@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import {
+  getGetLatestPracticeSessionQueryKey,
   useStartPracticeSession,
   useSendPracticeMessage,
   useGetLatestPracticeSession,
+  useAbandonPracticeSession,
   type PracticeMessageInput,
+  type PracticeSession,
   type PracticeStartInput,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +63,7 @@ function ScoreBar({ score }: { score: number }) {
 // ── Main component ──────────────────────────────────────────────────────────────
 export default function Practice() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Setup state
@@ -78,51 +83,74 @@ export default function Practice() {
   const [isComplete, setIsComplete] = useState(false);
   const [summary, setSummary] = useState("");
   const [avgScore, setAvgScore] = useState(0);
+  const [unfinishedSession, setUnfinishedSession] =
+    useState<PracticeSession | null>(null);
 
   const startPractice = useStartPracticeSession();
   const sendPractice = useSendPracticeMessage();
+  const abandonPractice = useAbandonPracticeSession();
   const {
     data: persistedSession,
     refetch: refetchPersistedSession,
+    isFetchedAfterMount: hasFetchedPersistedSession,
   } = useGetLatestPracticeSession();
-  const hydratedPersistedSession = useRef(false);
   const starting = startPractice.isPending;
   const submitting = sendPractice.isPending;
+  const startingFresh = abandonPractice.isPending || startPractice.isPending;
 
-  useEffect(() => {
-    if (hydratedPersistedSession.current || !persistedSession) return;
-    hydratedPersistedSession.current = true;
-    setSessionId(persistedSession.sessionId);
-    setSelectedMode(persistedSession.mode);
-    setJobTitle(persistedSession.jobTitle ?? "");
-    setJobDescription(persistedSession.jobDescription ?? "");
-    setTopic(persistedSession.topic ?? "");
+  const restoreSession = (session: PracticeSession) => {
+    setSessionId(session.sessionId);
+    setSelectedMode(session.mode);
+    setJobTitle(session.jobTitle ?? "");
+    setJobDescription(session.jobDescription ?? "");
+    setTopic(session.topic ?? "");
     setSessionContext({
-      mode: persistedSession.mode,
-      jobTitle: persistedSession.jobTitle ?? undefined,
-      jobDescription: persistedSession.jobDescription ?? undefined,
-      topic: persistedSession.topic ?? undefined,
+      mode: session.mode,
+      jobTitle: session.jobTitle ?? undefined,
+      jobDescription: session.jobDescription ?? undefined,
+      topic: session.topic ?? undefined,
     });
-    setMessages(persistedSession.messages.map((message) => ({
+    setMessages(session.messages.map((message) => ({
       role: message.role,
       content: message.content,
       feedback: message.feedback ?? undefined,
       score: message.score ?? undefined,
     })));
-    setCurrentQuestion(persistedSession.currentQuestion);
-    setQuestionNumber(persistedSession.questionNumber);
-    setIsComplete(persistedSession.isComplete);
-    setSummary(persistedSession.summary);
-    setAvgScore(persistedSession.avgScore);
-    const pendingQuestion =
-      persistedSession.questions[persistedSession.questionNumber - 1];
+    setCurrentQuestion(session.currentQuestion);
+    setQuestionNumber(session.questionNumber);
+    setIsComplete(session.isComplete);
+    setSummary(session.summary);
+    setAvgScore(session.totalScore);
+    const pendingQuestion = session.questions[session.questionNumber - 1];
     setUserAnswer(
       pendingQuestion?.userAnswer && !pendingQuestion.aiFeedback
         ? pendingQuestion.userAnswer
         : "",
     );
+    setUnfinishedSession(null);
     setSessionActive(true);
-  }, [persistedSession]);
+  };
+
+  useEffect(() => {
+    if (
+      !hasFetchedPersistedSession ||
+      !persistedSession ||
+      sessionActive ||
+      startingFresh
+    ) {
+      return;
+    }
+    if (persistedSession.status === "incomplete") {
+      setUnfinishedSession(persistedSession);
+      return;
+    }
+    restoreSession(persistedSession);
+  }, [
+    hasFetchedPersistedSession,
+    persistedSession,
+    sessionActive,
+    startingFresh,
+  ]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -152,6 +180,9 @@ export default function Practice() {
       setCurrentQuestion(data.firstQuestion);
       setQuestionNumber(1);
       setSessionActive(true);
+      void queryClient.invalidateQueries({
+        queryKey: getGetLatestPracticeSessionQueryKey(),
+      });
       },
       onError: (error) => {
         toast({
@@ -161,6 +192,78 @@ export default function Practice() {
         });
       },
     });
+  };
+
+  const resumeSession = () => {
+    if (!unfinishedSession) return;
+    restoreSession(unfinishedSession);
+  };
+
+  const startFreshSession = async () => {
+    if (!unfinishedSession) return;
+    const previousSession = unfinishedSession;
+
+    try {
+      await abandonPractice.mutateAsync({
+        sessionId: previousSession.sessionId,
+      });
+    } catch (error) {
+      toast({
+        title: "Could not close the old session",
+        description: getApiErrorMessage(error, "Try again."),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUnfinishedSession(null);
+    queryClient.removeQueries({
+      queryKey: getGetLatestPracticeSessionQueryKey(),
+    });
+    setSelectedMode(previousSession.mode);
+    setJobTitle(previousSession.jobTitle ?? "");
+    setJobDescription(previousSession.jobDescription ?? "");
+    setTopic(previousSession.topic ?? "");
+
+    const body: PracticeStartInput = { mode: previousSession.mode };
+    if (previousSession.mode === "job") {
+      body.jobTitle = previousSession.jobTitle ?? "";
+      body.jobDescription = previousSession.jobDescription ?? "";
+    }
+    if (previousSession.mode === "custom") {
+      body.topic = previousSession.topic ?? "";
+    }
+
+    try {
+      const data = await startPractice.mutateAsync({ data: body });
+      setSessionId(data.sessionId);
+      setSessionContext({
+        mode: previousSession.mode,
+        jobTitle: previousSession.jobTitle ?? undefined,
+        jobDescription: previousSession.jobDescription ?? undefined,
+        topic: previousSession.topic ?? undefined,
+      });
+      setMessages([{ role: "ai", content: data.intro }]);
+      setCurrentQuestion(data.firstQuestion);
+      setQuestionNumber(1);
+      setUserAnswer("");
+      setIsComplete(false);
+      setSummary("");
+      setAvgScore(0);
+      setSessionActive(true);
+      await queryClient.invalidateQueries({
+        queryKey: getGetLatestPracticeSessionQueryKey(),
+      });
+    } catch (error) {
+      toast({
+        title: "Could not start a fresh session",
+        description: getApiErrorMessage(
+          error,
+          "Your old session was closed. Review the setup and try again.",
+        ),
+        variant: "destructive",
+      });
+    }
   };
 
   const submitAnswer = async () => {
@@ -263,6 +366,43 @@ export default function Practice() {
             Mock interviews · Skill tests · AI-powered feedback
           </p>
         </header>
+
+        {unfinishedSession && (
+          <div className="border border-primary/40 bg-primary/10 p-5 mb-8">
+            <p className="font-serif text-lg mb-1">
+              You have an unfinished practice session from{" "}
+              {new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(unfinishedSession.startedAt))}
+              . Resume it?
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Your saved questions, answers, feedback, and scores will be
+              restored.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={resumeSession}
+                disabled={startingFresh}
+                className="rounded-none font-mono uppercase text-xs tracking-wider"
+              >
+                Resume
+              </Button>
+              <Button
+                variant="outline"
+                onClick={startFreshSession}
+                disabled={startingFresh}
+                className="rounded-none font-mono uppercase text-xs tracking-wider gap-2"
+              >
+                {startingFresh && (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                )}
+                Start fresh
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Mode cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">

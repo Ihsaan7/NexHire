@@ -267,6 +267,31 @@ paths:
                   - $ref: "#/components/schemas/PracticeSession"
                   - type: "null"
 
+  /practice/session/{sessionId}/abandon:
+    post:
+      operationId: abandonPracticeSession
+      tags: [practice]
+      summary: Close an unfinished practice session before starting fresh
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Practice session closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Practice session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /practice/message:
     post:
       operationId: sendPracticeMessage

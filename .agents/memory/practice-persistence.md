@@ -14,3 +14,9 @@ Answer evaluation must use an atomic, expiring per-question lease. Save the user
 **Why:** Question-number checks alone allow simultaneous submissions to both call AI and overwrite or advance the same session from stale state. A permanent lock would make process crashes unrecoverable.
 
 **How to apply:** Reject competing active leases, permit stale-lease takeover, use persisted session context for continuations, and refetch the server checkpoint after client submission errors so the answer remains retryable.
+
+Resume decisions must wait for an authoritative post-mount session fetch rather than accepting cached query data. Starting fresh must remove the abandoned session from cache and refresh after creating its replacement.
+
+**Why:** A one-shot hydration guard can accept a stale cached session before the network response, causing an abandoned or older completed session to replace the actual unfinished session on route remount.
+
+**How to apply:** Gate resume/banner hydration on a fetch completed after mount, never overwrite an active practice UI, and invalidate the latest-session cache after every successful session start.

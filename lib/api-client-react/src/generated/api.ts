@@ -1103,6 +1103,76 @@ export function useGetLatestPracticeSession<TData = Awaited<ReturnType<typeof ge
 
 
 
+export const getAbandonPracticeSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/practice/session/${sessionId}/abandon`
+}
+
+/**
+ * @summary Close an unfinished practice session before starting fresh
+ */
+export const abandonPracticeSession = async (sessionId: string, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getAbandonPracticeSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAbandonPracticeSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof abandonPracticeSession>>, TError,{sessionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof abandonPracticeSession>>, TError,{sessionId: string}, TContext> => {
+
+const mutationKey = ['abandonPracticeSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof abandonPracticeSession>>, {sessionId: string}> = (props) => {
+          const {sessionId} = props ?? {};
+
+          return  abandonPracticeSession(sessionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AbandonPracticeSessionMutationResult = NonNullable<Awaited<ReturnType<typeof abandonPracticeSession>>>
+
+    export type AbandonPracticeSessionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Close an unfinished practice session before starting fresh
+ */
+export const useAbandonPracticeSession = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof abandonPracticeSession>>, TError,{sessionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof abandonPracticeSession>>,
+        TError,
+        {sessionId: string},
+        TContext
+      > => {
+      return useMutation(getAbandonPracticeSessionMutationOptions(options));
+    }
+
 export const getSendPracticeMessageUrl = () => {
 
 

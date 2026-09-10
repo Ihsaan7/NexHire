@@ -300,6 +300,18 @@ export const GetLatestPracticeSessionResponse = zod.union([zod.object({
 
 
 /**
+ * @summary Close an unfinished practice session before starting fresh
+ */
+export const AbandonPracticeSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const AbandonPracticeSessionResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Submit an answer and receive AI feedback or the next question
  */
 

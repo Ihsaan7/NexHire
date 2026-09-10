@@ -32,7 +32,7 @@ type StoredSession = {
   summary: string;
   avgScore: number;
   totalScore: number;
-  status: "incomplete" | "complete";
+  status: "incomplete" | "complete" | "abandoned";
   pendingAnswerToken?: string | null;
   pendingQuestionNumber?: number | null;
   pendingAnswerStartedAt?: Date | null;
@@ -145,9 +145,6 @@ const fakePracticeSessionModel = {
       matchesSession(candidate, query),
     );
     if (!session) {
-      if (!query.status) {
-        throw new Error(`Unmatched final update: ${JSON.stringify(query)}`);
-      }
       return Promise.resolve({
         acknowledged: true,
         matchedCount: 0,
@@ -478,6 +475,71 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(concurrentSession.questions.length, 1);
     assert.equal(concurrentSession.questionNumber, 2);
     assert.equal(concurrentSession.pendingAnswerToken, undefined);
+
+    const abandonedStartResponse = await apiRequest(
+      baseUrl,
+      "/practice/start",
+      {
+        method: "POST",
+        body: JSON.stringify({ mode: "custom", topic: "Start fresh race" }),
+      },
+    );
+    const abandonedStarted = await abandonedStartResponse.json();
+    let releaseAbandonedContinuation: (() => void) | undefined;
+    const abandonedContinuationStarted = new Promise<void>(
+      (resolveStarted) => {
+        signalContinuationStarted = resolveStarted;
+      },
+    );
+    waitBeforeContinuation = new Promise<void>((resolveRelease) => {
+      releaseAbandonedContinuation = resolveRelease;
+    });
+    const inFlightAnswer = apiRequest(baseUrl, "/practice/message", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: abandonedStarted.sessionId,
+        mode: "custom",
+        topic: "Start fresh race",
+        history: [{ role: "user", content: "In-flight answer" }],
+        answer: "This evaluation should not overwrite Start fresh.",
+        questionNumber: 1,
+      }),
+    });
+    await abandonedContinuationStarted;
+
+    const abandonResponse = await apiRequest(
+      baseUrl,
+      `/practice/session/${abandonedStarted.sessionId}/abandon`,
+      { method: "POST" },
+    );
+    assert.equal(abandonResponse.status, 200);
+    releaseAbandonedContinuation?.();
+    const staleAnswerResponse = await inFlightAnswer;
+    assert.equal(staleAnswerResponse.status, 409);
+
+    const abandonedSession = sessions.find(
+      (session) => session._id.toString() === abandonedStarted.sessionId,
+    );
+    assert.ok(abandonedSession);
+    assert.equal(abandonedSession.status, "abandoned");
+    assert.equal(abandonedSession.isComplete, true);
+    assert.equal(abandonedSession.pendingAnswerToken, undefined);
+
+    const repeatedAbandonResponse = await apiRequest(
+      baseUrl,
+      `/practice/session/${abandonedStarted.sessionId}/abandon`,
+      { method: "POST" },
+    );
+    assert.equal(repeatedAbandonResponse.status, 200);
+
+    const reloadAfterStartFresh = await (
+      await apiRequest(baseUrl, "/practice/session")
+    ).json();
+    assert.notEqual(
+      reloadAfterStartFresh.sessionId,
+      abandonedStarted.sessionId,
+    );
+    assert.equal(reloadAfterStartFresh.status, "complete");
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }

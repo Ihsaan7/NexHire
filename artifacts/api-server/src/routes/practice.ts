@@ -7,6 +7,7 @@ import { PracticeSession } from "../models/PracticeSession";
 import { startPracticeSession, continuePracticeSession } from "../lib/gemini";
 import {
   GetLatestPracticeSessionResponse,
+  AbandonPracticeSessionResponse,
   SendPracticeMessageBody,
   SendPracticeMessageResponse,
   StartPracticeSessionBody,
@@ -100,6 +101,56 @@ router.get("/practice/session", requireAuth, async (req, res) => {
     sendInternalServerError(req, res, err, "getLatestPracticeSession error");
   }
 });
+
+// POST /api/practice/session/:sessionId/abandon
+router.post(
+  "/practice/session/:sessionId/abandon",
+  requireAuth,
+  async (req, res) => {
+    try {
+      await connectMongo();
+      const userId = (req as any).userId as string;
+      const sessionId = req.params.sessionId;
+      const result = await PracticeSession.updateOne(
+        {
+          _id: sessionId,
+          userId,
+          status: { $in: ["incomplete", "active"] },
+        },
+        {
+          $set: {
+            status: "abandoned",
+            isComplete: true,
+          },
+          $unset: {
+            pendingAnswerToken: 1,
+            pendingQuestionNumber: 1,
+            pendingAnswerStartedAt: 1,
+          },
+        },
+      );
+
+      if (result.matchedCount === 0) {
+        const existingSession = await PracticeSession.findOne({
+          _id: sessionId,
+          userId,
+        });
+        if (!existingSession) {
+          res.status(404).json({ error: "Practice session not found" });
+          return;
+        }
+      }
+
+      res.json(
+        AbandonPracticeSessionResponse.parse({
+          message: "Practice session closed. You can start fresh.",
+        }),
+      );
+    } catch (err) {
+      sendInternalServerError(req, res, err, "practiceAbandon error");
+    }
+  },
+);
 
 // POST /api/practice/message
 router.post("/practice/message", requireAuth, async (req, res) => {
