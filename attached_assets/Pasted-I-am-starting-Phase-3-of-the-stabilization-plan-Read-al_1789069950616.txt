@@ -1,0 +1,57 @@
+I am starting Phase 3 of the stabilization plan.
+Read all existing code carefully before making changes.
+Fix and implement one item at a time, waiting for my
+confirmation before moving to the next.
+
+--- PHASE 3: PRACTICE SESSION PERSISTENCE ---
+
+3A. SAVE PRACTICE SESSIONS TO DATABASE
+- Create collection: practiceSessions
+  fields:
+    userId (required)
+    mode (required) — "cv" | "job" | "custom"
+    topic (String) — job title or custom topic if applicable
+    questions (Array) — each item: { question, userAnswer, 
+      aiFeedback, score }
+    totalScore (Number) — average across all questions
+    status (String) — "incomplete" | "complete"
+    createdAt (Date)
+    updatedAt (Date)
+- Save session to DB when practice starts (status: incomplete)
+- Update each question record as user answers
+- Mark status: complete when session ends or summary is shown
+- Session must survive page refresh at every stage
+
+3B. RESUME INCOMPLETE SESSION
+- On Practice page load, check database for any session
+  where status = incomplete for this userId
+- If found, show a banner:
+  "You have an unfinished practice session from [date].
+   Resume it?"
+- Two buttons: Resume | Start fresh
+- Resume: reload from saved questions + answers so far
+- Start fresh: mark old session complete, start new one
+
+3C. PRACTICE HISTORY PAGE
+- Add a "History" tab or section inside the Practice page
+- Show list of completed sessions:
+  date, mode, topic, totalScore, number of questions
+- Click any session to view full review:
+  each question, user's answer, AI feedback, score
+- Show simple progress note if score improved vs previous
+  session on same topic
+
+3D. SKILL CATEGORY TRACKING
+- After each completed session, tag questions by skill category
+  (Gemini should return a category tag per question
+   e.g. "Communication", "Technical — Node.js", "Behavioural")
+- Save category tags to the questions array in practiceSessions
+- In Practice History, show a simple breakdown:
+  "Strong: Communication · Needs work: Technical — Node.js"
+
+--- RULES ---
+- One item at a time: 3A first, then 3B, 3C, 3D
+- Show me what changed after each, wait for my OK
+- Do not add real web search yet — that is Phase 4
+- Do not change UI design outside what these features require
+- Tell me when all Phase 3 items are complete and verified
