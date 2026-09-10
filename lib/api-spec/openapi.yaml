@@ -73,12 +73,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
-        "404":
-          description: Profile not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
     patch:
       operationId: updateProfile
       tags: [profile]

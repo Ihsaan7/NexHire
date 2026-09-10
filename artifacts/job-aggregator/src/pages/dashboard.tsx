@@ -95,7 +95,7 @@ export default function Dashboard() {
             AI Matched Opportunities
           </h2>
           {hasCV && (
-            <Link href="/jobs">
+            <Link href="/jobs?matched=true">
               <Button variant="ghost" className="font-mono uppercase text-xs rounded-none">
                 View all matches <ArrowRight className="w-4 h-4 ml-2" />
               </Button>

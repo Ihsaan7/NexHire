@@ -242,7 +242,7 @@ export const getGetProfileQueryKey = () => {
     }
 
 
-export const getGetProfileQueryOptions = <TData = Awaited<ReturnType<typeof getProfile>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetProfileQueryOptions = <TData = Awaited<ReturnType<typeof getProfile>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -261,14 +261,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getProfile>>>
-export type GetProfileQueryError = ErrorType<ErrorResponse>
+export type GetProfileQueryError = ErrorType<unknown>
 
 
 /**
  * @summary Get current user's profile
  */
 
-export function useGetProfile<TData = Awaited<ReturnType<typeof getProfile>>, TError = ErrorType<ErrorResponse>>(
+export function useGetProfile<TData = Awaited<ReturnType<typeof getProfile>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -279,6 +279,11 @@ export function useGetProfile<TData = Awaited<ReturnType<typeof getProfile>>, TE
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+
+
+
+
 
 export const getUpdateProfileUrl = () => {
 
@@ -564,13 +569,7 @@ export function useGetCvVersions<TData = Awaited<ReturnType<typeof getCvVersions
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
-
+// End of generated API client.
 export const getRestoreCvVersionUrl = (versionId: string,) => {
 
 

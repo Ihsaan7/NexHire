@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { useListJobs, useGetProfile, type ListJobsPostedWithin } from "@workspace/api-client-react";
+import {
+  useGetMatchedJobs,
+  useGetProfile,
+  useListJobs,
+  type ListJobsPostedWithin,
+} from "@workspace/api-client-react";
 import { JobCard } from "@/components/job-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -118,6 +123,8 @@ const EXPERIENCE_LEVELS = [
 ];
 
 export default function Jobs() {
+  const matchedMode =
+    new URLSearchParams(window.location.search).get("matched") === "true";
   const [search, setSearch] = useState("");
   const [sector, setSector] = useState<string>("all");
   const [category, setCategory] = useState<string>("all");
@@ -143,6 +150,36 @@ export default function Jobs() {
     postedWithin: postedWithin !== "all" ? postedWithin : undefined,
     minMatchScore: minMatchScore > 0 ? minMatchScore : undefined,
   });
+  const { data: matchedData, isLoading: matchedLoading } = useGetMatchedJobs({
+    limit: 20,
+  });
+  const matchedJobs = (matchedData?.jobs ?? []).filter(({ job, matchScore }) => {
+    const searchable = `${job.title} ${job.company ?? ""} ${job.description ?? ""}`.toLowerCase();
+    if (search && !searchable.includes(search.toLowerCase())) return false;
+    if (activeSector && job.sector !== activeSector) return false;
+    if (category !== "all" && job.category !== category) return false;
+    if (location !== "all" && job.location !== location) return false;
+    if (jobType !== "all" && job.jobType !== jobType) return false;
+    if (experienceLevel !== "all" && job.experienceLevel !== experienceLevel) {
+      return false;
+    }
+    if (matchScore < minMatchScore) return false;
+    if (postedWithin !== "all" && job.postedDate) {
+      const days =
+        postedWithin === "today" ? 1 : postedWithin === "week" ? 7 : 30;
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      if (new Date(job.postedDate).getTime() < cutoff) return false;
+    }
+    return true;
+  });
+  const displayedJobs = matchedMode
+    ? matchedJobs
+    : (data?.jobs ?? []).map((job) => ({
+        job,
+        matchScore: job.matchScore ?? null,
+      }));
+  const resultsLoading = matchedMode ? matchedLoading : isLoading;
+  const resultCount = matchedMode ? matchedJobs.length : data?.total ?? 0;
 
   const hasFilters =
     !!search ||
@@ -380,22 +417,24 @@ export default function Jobs() {
       <div className="flex-1 p-6 md:p-8 overflow-y-auto">
         <div className="mb-6 flex justify-between items-end">
           <div>
-            <h1 className="text-3xl font-serif">Open Positions</h1>
+            <h1 className="text-3xl font-serif">
+              {matchedMode ? "AI Matched Opportunities" : "Open Positions"}
+            </h1>
             <p className="text-muted-foreground font-mono text-xs uppercase mt-1">
-              {isLoading
+              {resultsLoading
                 ? "Scanning terminal..."
-                : `${data?.total || 0} results`}
+                : `${resultCount} results`}
             </p>
           </div>
         </div>
 
-        {isLoading ? (
+        {resultsLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {[...Array(6)].map((_, i) => (
               <Skeleton key={i} className="h-48 rounded-none bg-muted" />
             ))}
           </div>
-        ) : data?.jobs?.length === 0 ? (
+        ) : displayedJobs.length === 0 ? (
           <div className="py-20 text-center border border-dashed border-border bg-card/20">
             <p className="text-muted-foreground font-mono text-sm">
               No jobs match your filters.
@@ -412,14 +451,14 @@ export default function Jobs() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {data?.jobs?.map((job, i) => (
+            {displayedJobs.map(({ job, matchScore }, i) => (
               <motion.div
                 key={job.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.3 }}
               >
-                <JobCard job={job} />
+                <JobCard job={job} matchScore={matchScore} />
               </motion.div>
             ))}
           </div>

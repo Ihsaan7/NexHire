@@ -5,6 +5,8 @@ import { Gig } from "../models/Gig";
 import { logger } from "../lib/logger";
 import { beginSync, completeSync, failSync } from "../lib/syncStatus";
 import { AiTimeoutError } from "../lib/aiErrors";
+import { AiRateLimitError } from "../lib/aiErrors";
+import { callGemini } from "../lib/gemini";
 
 const router = Router();
 
@@ -12,7 +14,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
-async function enrichGig(title: string, company: string, description: string): Promise<{
+async function enrichGig(
+  title: string,
+  company: string,
+  description: string,
+  aiUserId?: string,
+): Promise<{
   taskType: string;
   payModel: string;
   estPayUSD: number | null;
@@ -40,17 +47,22 @@ Return this exact JSON shape:
 }`;
 
   try {
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 300 },
-        }),
-        signal: AbortSignal.timeout(30000),
-      },
+    const resp = await callGemini(
+      () =>
+        fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 300 },
+            }),
+            signal: AbortSignal.timeout(30000),
+          },
+        ),
+      30_000,
+      aiUserId,
     );
 
     if (resp.status === 429) return null;
@@ -63,6 +75,9 @@ Return this exact JSON shape:
 
     return JSON.parse(match[0]);
   } catch (error) {
+    if (error instanceof AiRateLimitError || error instanceof AiTimeoutError) {
+      throw error;
+    }
     if (error instanceof DOMException && error.name === "TimeoutError") {
       throw new AiTimeoutError();
     }
@@ -112,7 +127,7 @@ async function upsertGig(data: {
   return { isNew };
 }
 
-async function enrichPendingGigs() {
+async function enrichPendingGigs(aiUserId?: string) {
   const pending = await Gig.find({ enrichedAt: { $exists: false } }).limit(30).lean();
   if (!pending.length) return;
 
@@ -123,6 +138,7 @@ async function enrichPendingGigs() {
       gig.title,
       gig.company ?? "",
       gig.description ?? "",
+      aiUserId,
     );
 
     if (enrichment) {
@@ -316,7 +332,7 @@ async function fetchWWRGigs(): Promise<number> {
 }
 
 // Exported so gigs.ts can call it from the auth-protected trigger endpoint
-export async function runGigSync(): Promise<{ total: number }> {
+export async function runGigSync(aiUserId?: string): Promise<{ total: number }> {
   await connectMongo();
 
   const cutoff = new Date();
@@ -333,7 +349,7 @@ export async function runGigSync(): Promise<{ total: number }> {
 
   logger.info({ remoteok: rok, jobicy, remotive, wwr }, "Gig sources fetched");
 
-  await enrichPendingGigs();
+  await enrichPendingGigs(aiUserId);
 
   const total = await Gig.countDocuments();
   logger.info({ total }, "Gig sync complete");

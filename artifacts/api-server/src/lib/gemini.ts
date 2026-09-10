@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getAiUserId } from "./aiContext";
 import { consumeAiQuota } from "./aiQuota";
 import { AiRateLimitError, AiTimeoutError } from "./aiErrors";
+import { logger } from "./logger";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -12,8 +13,8 @@ export { AiRateLimitError, AiTimeoutError } from "./aiErrors";
 export async function callGemini<T>(
   call: () => Promise<T>,
   timeoutMs = AI_TIMEOUT_MS,
+  userId = getAiUserId(),
 ): Promise<T> {
-  const userId = getAiUserId();
   if (userId) await consumeAiQuota(userId);
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -504,7 +505,7 @@ Use that research as context. Do not put citations or source URLs inside the JSO
     nextQuestionSources = generated.sources;
   }
   if (parsed.category === null) {
-    console.warn("Gemini practice response did not include a valid category");
+    logger.warn("Gemini practice response did not include a valid category");
   }
   return {
     ...parsed,

@@ -68,6 +68,20 @@ test("restricts CORS to the production origin and local development", () => {
     }),
     true,
   );
+  assert.equal(
+    isAllowedCorsOrigin("https://preview.example.replit.dev", {
+      NODE_ENV: "development",
+      REPLIT_DEV_DOMAIN: "preview.example.replit.dev",
+    }),
+    true,
+  );
+  assert.equal(
+    isAllowedCorsOrigin("https://other.example.replit.dev", {
+      NODE_ENV: "development",
+      REPLIT_DEV_DOMAIN: "preview.example.replit.dev",
+    }),
+    false,
+  );
 });
 
 test("returns exact quota and friendly timeout responses", () => {

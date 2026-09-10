@@ -64,7 +64,10 @@ router.get("/saved-jobs", requireAuth, async (req, res) => {
         id: s._id.toString(),
         userId: s.userId,
         jobId: resolveJobId(s.jobId),
-        job: s.jobId && typeof s.jobId === "object" && (s.jobId as any)._id ? formatJob(s.jobId) : null,
+        job:
+          s.jobId && typeof s.jobId === "object" && (s.jobId as any)._id
+            ? formatJob(s.jobId)
+            : undefined,
         status: s.status,
         notes: s.notes ?? null,
         appliedAt: s.appliedAt?.toISOString() ?? null,
@@ -166,7 +169,7 @@ router.patch("/saved-jobs/:id", requireAuth, async (req, res) => {
       job:
         saved.jobId && typeof saved.jobId === "object" && (saved.jobId as any)._id
           ? formatJob(saved.jobId)
-          : null,
+          : undefined,
       status: saved.status,
       notes: saved.notes ?? null,
       appliedAt: saved.appliedAt?.toISOString() ?? null,

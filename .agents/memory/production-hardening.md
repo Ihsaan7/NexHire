@@ -7,7 +7,7 @@ Count AI limits at the provider-call boundary with durable per-user storage, not
 
 **Why:** Route counters drift across replicas, count cache hits incorrectly, and miss indirect provider calls.
 
-**How to apply:** Propagate the authenticated user through request context, reserve quota immediately before each provider call, and keep background cron work outside per-user limits.
+**How to apply:** Propagate the authenticated user through request context and reserve quota immediately before each provider call. Detached work started by an authenticated user must carry that user explicitly; only secret-protected cron work is exempt.
 
 Provider and database deadlines must retain typed timeout errors until the shared HTTP mapper returns a friendly 504.
 
@@ -19,4 +19,4 @@ Production CORS must use an explicit HTTPS origin rather than deriving a develop
 
 **Why:** Replit development domains are not published production URLs, and permissive reflection defeats origin restriction.
 
-**How to apply:** Require the production origin in production configuration; allow only loopback origins during development.
+**How to apply:** Require the production origin in production configuration; allow only the exact Replit development domain and loopback origins during development.

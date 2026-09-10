@@ -1,1 +1,1 @@
-console.log("Hello from @workspace/scripts");
+process.stdout.write("Hello from @workspace/scripts\n");

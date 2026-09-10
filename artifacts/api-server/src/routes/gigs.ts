@@ -4,6 +4,7 @@ import { connectMongo } from "../lib/mongodb";
 import { Gig } from "../models/Gig";
 import { getUsdToPkr, calcValueScore } from "../lib/exchangeRate";
 import { logger } from "../lib/logger";
+import { AiRateLimitError } from "../lib/aiErrors";
 import { runGigSync } from "./sync-gigs";
 import { ListGigsQueryParams, ListGigsResponse } from "@workspace/api-zod";
 import { sendInternalServerError, sendValidationError } from "../lib/http";
@@ -51,6 +52,7 @@ function formatGig(g: any, usdToPkr: number) {
 
 // POST /api/gigs/sync — Clerk-auth protected, triggers gig sync in background
 router.post("/gigs/sync", requireAuth, async (req, res) => {
+  const userId = (req as any).userId as string;
   const syncToken = await beginSync("gigs");
   if (!syncToken) {
     res.status(202).json({ message: "Sync already in progress. Check back shortly." });
@@ -60,10 +62,19 @@ router.post("/gigs/sync", requireAuth, async (req, res) => {
   res.status(202).json({ message: "Gig sync started." });
   (async () => {
     try {
-      const { total } = await runGigSync();
+      const { total } = await runGigSync(userId);
       await completeSync("gigs", syncToken, `Gig sync completed. ${total} gigs are available.`);
     } catch (err) {
-      await failSync("gigs", syncToken, "Gig sync failed. Try again.");
+      const message =
+        err instanceof AiRateLimitError
+          ? `AI limit reached. Try again in ${Math.max(
+              1,
+              Math.ceil(
+                (new Date(err.resetAt).getTime() - Date.now()) / 60_000,
+              ),
+            )} minutes. Reset at ${err.resetAt}.`
+          : "Gig sync failed. Try again.";
+      await failSync("gigs", syncToken, message);
       logger.error({ err }, "gigs/sync background error");
     }
   })();

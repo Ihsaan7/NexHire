@@ -51,6 +51,7 @@ mock.module(moduleUrl("../src/models/AiQuota.ts"), {
 
 const { consumeAiQuota } = await import("../src/lib/aiQuota.ts");
 const { AiRateLimitError } = await import("../src/lib/aiErrors.ts");
+const { callGemini } = await import("../src/lib/gemini.ts");
 
 test("allows 30 calls, blocks the 31st, and resets an expired window", async () => {
   state = null;
@@ -65,4 +66,16 @@ test("allows 30 calls, blocks the 31st, and resets an expired window", async () 
   await consumeAiQuota("user-1");
   assert.equal(state.count, 1);
   assert.ok(state.resetAt.getTime() > Date.now());
+});
+
+test("explicit authenticated background calls consume the same quota", async () => {
+  state = null;
+  const result = await callGemini(
+    async () => "enriched",
+    100,
+    "manual-sync-user",
+  );
+  assert.equal(result, "enriched");
+  assert.equal(state?.userId, "manual-sync-user");
+  assert.equal(state?.count, 1);
 });

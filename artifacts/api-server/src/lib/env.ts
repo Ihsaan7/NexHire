@@ -37,6 +37,12 @@ export function isAllowedCorsOrigin(
   if (!origin) return true;
   if (env.PRODUCTION_ORIGIN && origin === env.PRODUCTION_ORIGIN) return true;
   if (env.NODE_ENV !== "production") {
+    if (
+      env.REPLIT_DEV_DOMAIN &&
+      origin === `https://${env.REPLIT_DEV_DOMAIN}`
+    ) {
+      return true;
+    }
     try {
       const url = new URL(origin);
       return (
