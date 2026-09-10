@@ -226,13 +226,22 @@ export interface PracticeSessionMessage {
   score?: number | null;
 }
 
+export interface PracticeSessionQuestion {
+  question: string;
+  /** @nullable */
+  userAnswer?: string | null;
+  /** @nullable */
+  aiFeedback?: string | null;
+  /** @nullable */
+  score?: number | null;
+}
+
 export type PracticeSessionStatus = typeof PracticeSessionStatus[keyof typeof PracticeSessionStatus];
 
 
 export const PracticeSessionStatus = {
-  active: 'active',
-  completed: 'completed',
-  abandoned: 'abandoned',
+  incomplete: 'incomplete',
+  complete: 'complete',
 } as const;
 
 export interface PracticeSession {
@@ -245,11 +254,13 @@ export interface PracticeSession {
   /** @nullable */
   topic?: string | null;
   messages: PracticeSessionMessage[];
+  questions: PracticeSessionQuestion[];
   currentQuestion: string;
   questionNumber: number;
   isComplete: boolean;
   summary: string;
   avgScore: number;
+  totalScore: number;
   status: PracticeSessionStatus;
   startedAt: string;
   updatedAt: string;

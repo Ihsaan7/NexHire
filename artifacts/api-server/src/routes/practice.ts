@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { requireAuth } from "./auth";
 import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
@@ -54,12 +55,19 @@ router.post("/practice/start", requireAuth, async (req, res) => {
       jobDescription: jobDescription ?? null,
       topic: topic ?? null,
       messages: [{ role: "ai", content: result.intro, feedback: null, score: null }],
+      questions: [{
+        question: result.firstQuestion,
+        userAnswer: null,
+        aiFeedback: null,
+        score: null,
+      }],
       currentQuestion: result.firstQuestion,
       questionNumber: 1,
       isComplete: false,
       summary: "",
       avgScore: 0,
-      status: "active",
+      totalScore: 0,
+      status: "incomplete",
     });
 
     res.json(StartPracticeSessionResponse.parse({
@@ -79,7 +87,7 @@ router.get("/practice/session", requireAuth, async (req, res) => {
     const userId = (req as any).userId as string;
     const session = await PracticeSession.findOne({
       userId,
-      status: { $in: ["active", "completed"] },
+      status: { $in: ["incomplete", "complete", "active", "completed"] },
     }).sort({ updatedAt: -1 });
 
     if (!session) {
@@ -103,7 +111,7 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       sendValidationError(req, res, parsed.error);
       return;
     }
-    const { sessionId, mode, jobTitle, jobDescription, topic, history, answer, questionNumber } = parsed.data;
+    const { sessionId, history, answer, questionNumber } = parsed.data;
 
     if (!answer?.trim()) {
       res.status(400).json({ error: "answer is required" });
@@ -115,7 +123,10 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       res.status(404).json({ error: "Practice session not found" });
       return;
     }
-    if (session.isComplete || session.status !== "active") {
+    if (
+      session.isComplete ||
+      !["incomplete", "active"].includes(session.status)
+    ) {
       res.status(400).json({ error: "Practice session is already complete" });
       return;
     }
@@ -125,9 +136,51 @@ router.post("/practice/message", requireAuth, async (req, res) => {
     }
 
     let cvText: string | undefined;
-    if (mode === "cv") {
+    if (session.mode === "cv") {
       const profile = await Profile.findOne({ userId });
       cvText = profile?.cvText;
+    }
+
+    const answeredQuestions = getPersistedQuestions(session);
+    answeredQuestions[session.questionNumber - 1] = {
+      question: session.currentQuestion,
+      userAnswer: answer,
+      aiFeedback: null,
+      score: null,
+    };
+    const submissionToken = randomUUID();
+    const pendingAnswerStartedAt = new Date();
+    const staleLeaseBefore = new Date(
+      pendingAnswerStartedAt.getTime() - 5 * 60 * 1000,
+    );
+    const answerCheckpoint = await PracticeSession.findOneAndUpdate(
+      {
+        _id: session._id,
+        userId,
+        questionNumber: session.questionNumber,
+        status: { $in: ["incomplete", "active"] },
+        $or: [
+          { pendingAnswerToken: null },
+          { pendingAnswerToken: { $exists: false } },
+          { pendingAnswerStartedAt: { $lt: staleLeaseBefore } },
+        ],
+      },
+      {
+        $set: {
+          questions: answeredQuestions,
+          pendingAnswerToken: submissionToken,
+          pendingQuestionNumber: session.questionNumber,
+          pendingAnswerStartedAt,
+        },
+      },
+      { new: true },
+    );
+    if (!answerCheckpoint) {
+      res.status(409).json({
+        error:
+          "This answer is already being evaluated. Reload and try again.",
+      });
+      return;
     }
 
     const storedHistory = [
@@ -139,16 +192,31 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       { role: "user" as const, content: answer },
     ];
 
-    const result = await continuePracticeSession({
-      mode,
-      cvText,
-      jobTitle,
-      jobDescription,
-      topic,
-      history: storedHistory.length > 0 ? storedHistory : history || [],
-      userAnswer: answer,
-      questionNumber,
-    });
+    let result;
+    try {
+      result = await continuePracticeSession({
+        mode: session.mode,
+        cvText,
+        jobTitle: session.jobTitle ?? undefined,
+        jobDescription: session.jobDescription ?? undefined,
+        topic: session.topic ?? undefined,
+        history: storedHistory.length > 0 ? storedHistory : history || [],
+        userAnswer: answer,
+        questionNumber,
+      });
+    } catch (err) {
+      await PracticeSession.updateOne(
+        { _id: session._id, userId, pendingAnswerToken: submissionToken },
+        {
+          $unset: {
+            pendingAnswerToken: 1,
+            pendingQuestionNumber: 1,
+            pendingAnswerStartedAt: 1,
+          },
+        },
+      );
+      throw err;
+    }
 
     const updatedMessages = [
       ...session.messages,
@@ -159,23 +227,61 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       .filter((message) => message.role === "user" && message.score !== null && message.score !== undefined)
       .map((message) => message.score as number);
     const isComplete = result.isComplete;
+    const updatedQuestions = answeredQuestions;
+    updatedQuestions[session.questionNumber - 1] = {
+      question: session.currentQuestion,
+      userAnswer: answer,
+      aiFeedback: result.feedback,
+      score: result.score,
+    };
+    if (!isComplete && result.nextQuestion) {
+      updatedQuestions.push({
+        question: result.nextQuestion,
+        userAnswer: null,
+        aiFeedback: null,
+        score: null,
+      });
+    }
+    const totalScore = scores.length
+      ? Math.round(
+          (scores.reduce((sum, score) => sum + score, 0) / scores.length) *
+            10,
+        ) / 10
+      : 0;
 
-    await PracticeSession.updateOne(
-      { _id: session._id, userId },
+    const finalUpdate = await PracticeSession.updateOne(
+      {
+        _id: session._id,
+        userId,
+        pendingAnswerToken: submissionToken,
+        pendingQuestionNumber: session.questionNumber,
+        questionNumber: session.questionNumber,
+      },
       {
         $set: {
           messages: updatedMessages,
+          questions: updatedQuestions,
           currentQuestion: result.nextQuestion ?? "",
           questionNumber: session.questionNumber + 1,
           isComplete,
           summary: result.summary ?? "",
-          avgScore: scores.length
-            ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
-            : 0,
-          status: isComplete ? "completed" : "active",
+          avgScore: totalScore,
+          totalScore,
+          status: isComplete ? "complete" : "incomplete",
+        },
+        $unset: {
+          pendingAnswerToken: 1,
+          pendingQuestionNumber: 1,
+          pendingAnswerStartedAt: 1,
         },
       },
     );
+    if (finalUpdate.matchedCount === 0) {
+      res.status(409).json({
+        error: "Practice session changed while the answer was evaluated.",
+      });
+      return;
+    }
 
     res.json(SendPracticeMessageResponse.parse({
       sessionId,
@@ -187,7 +293,48 @@ router.post("/practice/message", requireAuth, async (req, res) => {
   }
 });
 
+function getPersistedQuestions(session: any) {
+  if (Array.isArray(session.questions) && session.questions.length > 0) {
+    return session.questions.map((question: any) => ({
+      question: question.question,
+      userAnswer: question.userAnswer ?? null,
+      aiFeedback: question.aiFeedback ?? null,
+      score: question.score ?? null,
+    }));
+  }
+
+  const questions: {
+    question: string;
+    userAnswer: string;
+    aiFeedback: string | null;
+    score: number | null;
+  }[] = [];
+  for (let index = 0; index < session.messages.length; index += 1) {
+    const message = session.messages[index];
+    const previous = session.messages[index - 1];
+    if (message.role === "user" && previous?.role === "ai") {
+      questions.push({
+        question: previous.content,
+        userAnswer: message.content,
+        aiFeedback: message.feedback ?? null,
+        score: message.score ?? null,
+      });
+    }
+  }
+  return questions;
+}
+
 function formatPracticeSession(session: any) {
+  const questions = getPersistedQuestions(session);
+  const totalScoreIsLegacyDefault =
+    typeof session.$isDefault === "function" &&
+    session.$isDefault("totalScore");
+  const totalScore =
+    !totalScoreIsLegacyDefault && Number.isFinite(session.totalScore)
+    ? session.totalScore
+    : Number.isFinite(session.avgScore)
+      ? session.avgScore
+      : 0;
   return {
     sessionId: session._id.toString(),
     mode: session.mode,
@@ -200,12 +347,19 @@ function formatPracticeSession(session: any) {
       feedback: message.feedback ?? null,
       score: message.score ?? null,
     })),
+    questions,
     currentQuestion: session.currentQuestion,
     questionNumber: session.questionNumber,
     isComplete: session.isComplete,
     summary: session.summary,
     avgScore: session.avgScore,
-    status: session.status,
+    totalScore,
+    status:
+      session.status === "complete" ||
+      session.status === "completed" ||
+      session.status === "abandoned"
+        ? "complete"
+        : "incomplete",
     startedAt: session.createdAt.toISOString(),
     updatedAt: session.updatedAt.toISOString(),
   };

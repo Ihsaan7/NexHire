@@ -8,3 +8,9 @@ Practice sessions are user-scoped Mongo records and the server is the source of 
 **Why:** React-only state was lost on navigation or reload and could let stale clients overwrite the current question sequence.
 
 **How to apply:** Preserve session ownership checks and question-number synchronization when extending practice; do not rely on client-provided history for persistence or authorization.
+
+Answer evaluation must use an atomic, expiring per-question lease. Save the user's answer before calling AI, bind the final write to the lease and unchanged question number, and release only that lease on AI failure.
+
+**Why:** Question-number checks alone allow simultaneous submissions to both call AI and overwrite or advance the same session from stale state. A permanent lock would make process crashes unrecoverable.
+
+**How to apply:** Reject competing active leases, permit stale-lease takeover, use persisted session context for continuations, and refetch the server checkpoint after client submission errors so the answer remains retryable.

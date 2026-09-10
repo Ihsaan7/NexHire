@@ -81,7 +81,10 @@ export default function Practice() {
 
   const startPractice = useStartPracticeSession();
   const sendPractice = useSendPracticeMessage();
-  const { data: persistedSession } = useGetLatestPracticeSession();
+  const {
+    data: persistedSession,
+    refetch: refetchPersistedSession,
+  } = useGetLatestPracticeSession();
   const hydratedPersistedSession = useRef(false);
   const starting = startPractice.isPending;
   const submitting = sendPractice.isPending;
@@ -111,6 +114,13 @@ export default function Practice() {
     setIsComplete(persistedSession.isComplete);
     setSummary(persistedSession.summary);
     setAvgScore(persistedSession.avgScore);
+    const pendingQuestion =
+      persistedSession.questions[persistedSession.questionNumber - 1];
+    setUserAnswer(
+      pendingQuestion?.userAnswer && !pendingQuestion.aiFeedback
+        ? pendingQuestion.userAnswer
+        : "",
+    );
     setSessionActive(true);
   }, [persistedSession]);
 
@@ -200,7 +210,28 @@ export default function Practice() {
         setQuestionNumber(data.questionNumber);
       }
       },
-      onError: (error) => {
+      onError: async (error) => {
+        const restored = (await refetchPersistedSession()).data;
+        if (restored) {
+          setMessages(restored.messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+            feedback: message.feedback ?? undefined,
+            score: message.score ?? undefined,
+          })));
+          setCurrentQuestion(restored.currentQuestion);
+          setQuestionNumber(restored.questionNumber);
+          setIsComplete(restored.isComplete);
+          setSummary(restored.summary);
+          setAvgScore(restored.totalScore);
+          const pendingQuestion =
+            restored.questions[restored.questionNumber - 1];
+          setUserAnswer(
+            pendingQuestion?.userAnswer && !pendingQuestion.aiFeedback
+              ? pendingQuestion.userAnswer
+              : "",
+          );
+        }
         toast({
           title: "Error getting response",
           description: getApiErrorMessage(error, "Try again."),

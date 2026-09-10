@@ -1051,6 +1051,20 @@ components:
         - role
         - content
 
+    PracticeSessionQuestion:
+      type: object
+      properties:
+        question:
+          type: string
+        userAnswer:
+          type: ["string", "null"]
+        aiFeedback:
+          type: ["string", "null"]
+        score:
+          type: ["number", "null"]
+      required:
+        - question
+
     PracticeSession:
       type: object
       properties:
@@ -1068,6 +1082,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PracticeSessionMessage"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeSessionQuestion"
         currentQuestion:
           type: string
         questionNumber:
@@ -1078,9 +1096,11 @@ components:
           type: string
         avgScore:
           type: number
+        totalScore:
+          type: number
         status:
           type: string
-          enum: [active, completed, abandoned]
+          enum: [incomplete, complete]
         startedAt:
           type: string
         updatedAt:
@@ -1089,11 +1109,13 @@ components:
         - sessionId
         - mode
         - messages
+        - questions
         - currentQuestion
         - questionNumber
         - isComplete
         - summary
         - avgScore
+        - totalScore
         - status
         - startedAt
         - updatedAt

@@ -7,7 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "test:integration": "node --import ../../scripts/node_modules/tsx/dist/loader.mjs --test --experimental-test-module-mocks test/profile-cv.integration.test.ts",
+    "test:integration": "node --import ../../scripts/node_modules/tsx/dist/loader.mjs --test --experimental-test-module-mocks test/*.integration.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

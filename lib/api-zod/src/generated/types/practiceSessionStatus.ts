@@ -10,7 +10,6 @@ export type PracticeSessionStatus = typeof PracticeSessionStatus[keyof typeof Pr
 
 
 export const PracticeSessionStatus = {
-  active: 'active',
-  completed: 'completed',
-  abandoned: 'abandoned',
+  incomplete: 'incomplete',
+  complete: 'complete',
 } as const;

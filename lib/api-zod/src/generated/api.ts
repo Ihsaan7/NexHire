@@ -281,12 +281,19 @@ export const GetLatestPracticeSessionResponse = zod.union([zod.object({
   "feedback": zod.string().nullish(),
   "score": zod.number().nullish()
 })),
+  "questions": zod.array(zod.object({
+  "question": zod.string(),
+  "userAnswer": zod.string().nullish(),
+  "aiFeedback": zod.string().nullish(),
+  "score": zod.number().nullish()
+})),
   "currentQuestion": zod.string(),
   "questionNumber": zod.number(),
   "isComplete": zod.boolean(),
   "summary": zod.string(),
   "avgScore": zod.number(),
-  "status": zod.enum(['active', 'completed', 'abandoned']),
+  "totalScore": zod.number(),
+  "status": zod.enum(['incomplete', 'complete']),
   "startedAt": zod.string(),
   "updatedAt": zod.string()
 }),zod.null()])

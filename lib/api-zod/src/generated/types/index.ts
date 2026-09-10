@@ -48,6 +48,7 @@ export * from './practiceMode';
 export * from './practiceSession';
 export * from './practiceSessionMessage';
 export * from './practiceSessionMessageRole';
+export * from './practiceSessionQuestion';
 export * from './practiceSessionStatus';
 export * from './practiceStartInput';
 export * from './practiceStartResult';

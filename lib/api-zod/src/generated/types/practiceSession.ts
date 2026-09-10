@@ -7,6 +7,7 @@
  */
 import type { PracticeMode } from './practiceMode';
 import type { PracticeSessionMessage } from './practiceSessionMessage';
+import type { PracticeSessionQuestion } from './practiceSessionQuestion';
 import type { PracticeSessionStatus } from './practiceSessionStatus';
 
 export interface PracticeSession {
@@ -19,11 +20,13 @@ export interface PracticeSession {
   /** @nullable */
   topic?: string | null;
   messages: PracticeSessionMessage[];
+  questions: PracticeSessionQuestion[];
   currentQuestion: string;
   questionNumber: number;
   isComplete: boolean;
   summary: string;
   avgScore: number;
+  totalScore: number;
   status: PracticeSessionStatus;
   startedAt: string;
   updatedAt: string;
