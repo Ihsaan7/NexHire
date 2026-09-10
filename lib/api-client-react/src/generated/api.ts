@@ -24,6 +24,7 @@ import type {
   CvFileInput,
   CvRefineInput,
   CvRefineResult,
+  CvRefinementListResponse,
   CvSuggestions,
   CvUploadResult,
   ErrorResponse,
@@ -656,6 +657,83 @@ export const useRefineCv = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getRefineCvMutationOptions(options));
     }
+
+export const getGetCvRefinementsUrl = () => {
+
+
+
+
+  return `/api/profile/cv/refinements`
+}
+
+/**
+ * @summary Get the latest 10 saved CV refinements for the current user
+ */
+export const getCvRefinements = async ( options?: RequestInit): Promise<CvRefinementListResponse> => {
+
+  return customFetch<CvRefinementListResponse>(getGetCvRefinementsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCvRefinementsQueryKey = () => {
+    return [
+    `/api/profile/cv/refinements`
+    ] as const;
+    }
+
+
+export const getGetCvRefinementsQueryOptions = <TData = Awaited<ReturnType<typeof getCvRefinements>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvRefinements>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCvRefinementsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCvRefinements>>> = ({ signal }) => getCvRefinements({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCvRefinements>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCvRefinementsQueryResult = NonNullable<Awaited<ReturnType<typeof getCvRefinements>>>
+export type GetCvRefinementsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the latest 10 saved CV refinements for the current user
+ */
+
+export function useGetCvRefinements<TData = Awaited<ReturnType<typeof getCvRefinements>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCvRefinements>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCvRefinementsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getStartPracticeSessionUrl = () => {
 

@@ -113,6 +113,20 @@ export interface CvRefineInput {
   jobDescription: string;
 }
 
+export interface CvRefinementRecord {
+  id: string;
+  /** @nullable */
+  jobId: string | null;
+  jobTitle: string;
+  jobDescription: string;
+  refinedText: string;
+  createdAt: string;
+}
+
+export interface CvRefinementListResponse {
+  refinements: CvRefinementRecord[];
+}
+
 export type PracticeMode = typeof PracticeMode[keyof typeof PracticeMode];
 
 

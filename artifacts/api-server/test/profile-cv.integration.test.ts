@@ -60,6 +60,16 @@ const cvAudits: {
   suggestionsGeneratedAt?: Date;
   createdAt: Date;
 }[] = [];
+const cvRefinements: {
+  _id: { toString: () => string };
+  userId: string;
+  jobId?: string;
+  jobTitle: string;
+  jobDescription: string;
+  refinedText: string;
+  createdAt: Date;
+}[] = [];
+let refinementSequence = 0;
 
 function clone<T>(value: T): T {
   if (value === undefined) return value;
@@ -204,6 +214,63 @@ const fakeCvAuditModel = {
   },
 };
 
+const fakeCvRefinementModel = {
+  create(input: {
+    userId: string;
+    jobId?: string;
+    jobTitle: string;
+    jobDescription: string;
+    refinedText: string;
+    createdAt: Date;
+  }) {
+    refinementSequence += 1;
+    const id = `refinement-${refinementSequence}`;
+    const record = {
+      ...clone(input),
+      createdAt: new Date(
+        new Date("2026-09-01T00:00:00.000Z").getTime() +
+          refinementSequence,
+      ),
+      _id: { toString: () => id },
+    };
+    cvRefinements.push(record);
+    return Promise.resolve(clone(record));
+  },
+  find(query: { userId: string }) {
+    const sorted = () =>
+      cvRefinements
+        .filter((refinement) => refinement.userId === query.userId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return {
+      sort: () => ({
+        limit: (limit: number) =>
+          Promise.resolve(sorted().slice(0, limit).map(clone)),
+        skip: (skip: number) => ({
+          select: () => Promise.resolve(sorted().slice(skip).map(clone)),
+        }),
+      }),
+    };
+  },
+  deleteMany(query: {
+    userId: string;
+    _id: { $in: { toString: () => string }[] };
+  }) {
+    const ids = new Set(query._id.$in.map((id) => id.toString()));
+    let deletedCount = 0;
+    for (let index = cvRefinements.length - 1; index >= 0; index -= 1) {
+      const refinement = cvRefinements[index];
+      if (
+        refinement?.userId === query.userId &&
+        ids.has(refinement._id.toString())
+      ) {
+        cvRefinements.splice(index, 1);
+        deletedCount += 1;
+      }
+    }
+    return Promise.resolve({ acknowledged: true, deletedCount });
+  },
+};
+
 const auditResult: Audit = {
   score: 82,
   issues: [
@@ -256,6 +323,9 @@ mock.module(moduleUrl("../src/models/Profile.ts"), {
 });
 mock.module(moduleUrl("../src/models/CvAudit.ts"), {
   namedExports: { CvAudit: fakeCvAuditModel },
+});
+mock.module(moduleUrl("../src/models/CvRefinement.ts"), {
+  namedExports: { CvRefinement: fakeCvRefinementModel },
 });
 mock.module(moduleUrl("../src/lib/gemini.ts"), {
   namedExports: {
@@ -314,6 +384,8 @@ async function apiRequest(
 test("persists CV Studio results across reloads and clears them for a replacement CV", async () => {
   profiles.clear();
   cvAudits.length = 0;
+  cvRefinements.length = 0;
+  refinementSequence = 0;
   suggestionGenerationCount = 0;
   const fixture = await readFile(fixturePath);
   const { server, baseUrl } = await startTestServer();
@@ -406,6 +478,23 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     assert.equal(refineResponse.status, 200);
     assert.deepEqual(await refineResponse.json(), refinementResult);
 
+    const firstRefinementsResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/refinements",
+    );
+    assert.equal(firstRefinementsResponse.status, 200);
+    const firstRefinements = await firstRefinementsResponse.json();
+    assert.equal(firstRefinements.refinements.length, 1);
+    assert.equal(
+      firstRefinements.refinements[0].jobTitle,
+      "Senior Software Engineer",
+    );
+    assert.equal(
+      firstRefinements.refinements[0].refinedText,
+      refinementResult.refinedCv,
+    );
+    assert.ok(firstRefinements.refinements[0].createdAt);
+
     const profileAfterRefine = await apiRequest(baseUrl, "/profile");
     const refinedProfile = await profileAfterRefine.json();
     assert.equal(refinedProfile.cvRefinement.jobTitle, "Senior Software Engineer");
@@ -414,6 +503,40 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     assert.deepEqual(refinedProfile.cvRefinement.changes, refinementResult.changes);
     assert.ok(refinedProfile.cvRefinement.generatedAt);
     assert.equal(refinedProfile.cvAudit.score, auditResult.score);
+
+    const concurrentRefinementResponses = await Promise.all(
+      Array.from({ length: 10 }, (_, offset) => {
+        const index = offset + 2;
+        return apiRequest(baseUrl, "/profile/cv/refine", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            jobTitle: `Role ${index}`,
+            jobDescription: `${jobDescription} Iteration ${index}.`,
+          }),
+        });
+      }),
+    );
+    concurrentRefinementResponses.forEach((response) => {
+      assert.equal(response.status, 200);
+    });
+
+    const cappedRefinementsResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/refinements",
+    );
+    assert.equal(cappedRefinementsResponse.status, 200);
+    const cappedRefinements = await cappedRefinementsResponse.json();
+    assert.equal(cappedRefinements.refinements.length, 10);
+    assert.deepEqual(
+      new Set(
+        cappedRefinements.refinements.map(
+          (refinement: { jobTitle: string }) => refinement.jobTitle,
+        ),
+      ),
+      new Set(Array.from({ length: 10 }, (_, index) => `Role ${index + 2}`)),
+    );
+    assert.equal(cvRefinements.length, 10);
 
     const replacement = new FormData();
     replacement.append(

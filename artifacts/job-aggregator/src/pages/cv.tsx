@@ -7,7 +7,10 @@ import {
   getGetCvSuggestionsQueryKey,
   useAuditCv,
   useRefineCv,
+  useGetCvRefinements,
+  getGetCvRefinementsQueryKey,
   type CvAuditResult,
+  type CvRefinementRecord,
   type CvRefineResult,
 } from "@workspace/api-client-react";
 import { useState, useCallback, useEffect } from "react";
@@ -148,6 +151,19 @@ export default function CV() {
       ],
     },
   });
+  const {
+    data: savedRefinements,
+    isLoading: loadingRefinements,
+    refetch: refetchRefinements,
+  } = useGetCvRefinements({
+    query: {
+      enabled: !!profile,
+      queryKey: [
+        ...getGetCvRefinementsQueryKey(),
+        profile?.userId ?? null,
+      ],
+    },
+  });
   const uploadCv = useUploadCv();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -161,6 +177,7 @@ export default function CV() {
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [refined, setRefined] = useState<CvRefineResult | null>(null);
+  const [selectedRefinementId, setSelectedRefinementId] = useState<string | null>(null);
 
   useEffect(() => {
     if (latestAudit?.audit) {
@@ -173,12 +190,13 @@ export default function CV() {
   }, [latestAudit, loadingLatestAudit, profile?.cvAudit]);
 
   useEffect(() => {
+    if (selectedRefinementId) return;
     setRefined(profile?.cvRefinement ?? null);
     if (profile?.cvRefinement) {
       setJobTitle(profile.cvRefinement.jobTitle ?? "");
       setJobDescription(profile.cvRefinement.jobDescription);
     }
-  }, [profile?.cvRefinement]);
+  }, [profile?.cvRefinement, selectedRefinementId]);
 
   const auditCv = useAuditCv({
     mutation: {
@@ -197,13 +215,15 @@ export default function CV() {
   });
   const refineCv = useRefineCv({
     mutation: {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         setRefined(data);
+        setSelectedRefinementId(null);
         // Refresh the profile so the saved job context and rewritten CV are
         // available after navigation or an authenticated reload.
-        refetchProfile();
+        await Promise.all([refetchProfile(), refetchRefinements()]);
       },
-      onError: (error) => {
+      onError: async (error) => {
+        await refetchRefinements();
         toast({ title: "Refine failed", description: getApiErrorMessage(error, "Try again."), variant: "destructive" });
       },
     },
@@ -241,6 +261,7 @@ export default function CV() {
         setRefined(null);
         setJobTitle("");
         setJobDescription("");
+        setSelectedRefinementId(null);
         toast({ title: "CV uploaded successfully", description: "Your data has been extracted." });
         await refetchProfile();
       },
@@ -263,7 +284,13 @@ export default function CV() {
       return;
     }
     setRefined(null);
+    setSelectedRefinementId(null);
     refineCv.mutate({ data: { jobTitle, jobDescription } });
+  };
+
+  const viewSavedRefinement = (saved: CvRefinementRecord) => {
+    setSelectedRefinementId(saved.id);
+    setRefined({ refinedCv: saved.refinedText, changes: [] });
   };
 
   const copyRefined = () => {
@@ -517,6 +544,45 @@ export default function CV() {
                     {refining ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Rewriting CV…</> : <><Sparkles className="w-3.5 h-3.5" /> Refine My CV</>}
                   </Button>
                 </div>
+
+                <div className="border border-border bg-card/30">
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                      Saved Refinements
+                    </p>
+                  </div>
+                  {loadingRefinements ? (
+                    <div className="p-4 space-y-2">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full rounded-none" />
+                      ))}
+                    </div>
+                  ) : savedRefinements?.refinements.length ? (
+                    <div className="divide-y divide-border">
+                      {savedRefinements.refinements.map((saved) => (
+                        <button
+                          key={saved.id}
+                          type="button"
+                          onClick={() => viewSavedRefinement(saved)}
+                          className={`w-full px-4 py-3 text-left transition-colors hover:bg-primary/5 ${
+                            selectedRefinementId === saved.id ? "bg-primary/10" : ""
+                          }`}
+                        >
+                          <span className="block text-sm font-medium truncate">
+                            {saved.jobTitle}
+                          </span>
+                          <span className="block mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {format(new Date(saved.createdAt), "PP")}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="p-4 font-mono text-xs text-muted-foreground">
+                      No saved refinements yet.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Output panel */}
@@ -531,17 +597,19 @@ export default function CV() {
                 {refined && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                     {/* Changes made */}
-                    <div className="border border-border bg-card/40 p-5">
-                      <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-3">Changes Made</p>
-                      <ul className="space-y-2">
-                        {refined.changes.map((c, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                            <span className="text-muted-foreground">{c}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {refined.changes.length > 0 && (
+                      <div className="border border-border bg-card/40 p-5">
+                        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-3">Changes Made</p>
+                        <ul className="space-y-2">
+                          {refined.changes.map((c, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm">
+                              <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                              <span className="text-muted-foreground">{c}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     {/* Refined CV */}
                     <div className="border border-border bg-card/40">

@@ -12,6 +12,8 @@ export * from './cvAuditRecord';
 export * from './cvAuditResult';
 export * from './cvFileInput';
 export * from './cvRefineInput';
+export * from './cvRefinementListResponse';
+export * from './cvRefinementRecord';
 export * from './cvRefineResult';
 export * from './cvSuggestions';
 export * from './cvUploadResult';

@@ -4,11 +4,13 @@ import { requireAuth } from "./auth";
 import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
 import { CvAudit } from "../models/CvAudit";
+import { CvRefinement } from "../models/CvRefinement";
 import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini";
 import { logger } from "../lib/logger";
 import {
   AuditCvResponse,
   GetLatestCvAuditResponse,
+  GetCvRefinementsResponse,
   GetCvSuggestionsResponse,
   GetProfileResponse,
   RefineCvBody,
@@ -46,6 +48,28 @@ const suggestionFlights = new Map<
   string,
   Promise<SuggestionGenerationOutcome>
 >();
+const refinementWriteTails = new Map<string, Promise<void>>();
+
+async function serializeRefinementWrite<T>(
+  userId: string,
+  write: () => Promise<T>,
+): Promise<T> {
+  const previous = refinementWriteTails.get(userId) ?? Promise.resolve();
+  const operation = previous.catch(() => undefined).then(write);
+  const tail = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  refinementWriteTails.set(userId, tail);
+
+  try {
+    return await operation;
+  } finally {
+    if (refinementWriteTails.get(userId) === tail) {
+      refinementWriteTails.delete(userId);
+    }
+  }
+}
 
 function formatCvAuditRecord(audit: any) {
   return {
@@ -307,6 +331,31 @@ router.post("/profile/cv/audit", requireAuth, async (req, res) => {
 });
 
 // POST /api/profile/cv/refine
+router.get("/profile/cv/refinements", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+    const userId = (req as any).userId as string;
+    const refinements = await CvRefinement.find({ userId })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(10);
+
+    res.json(
+      GetCvRefinementsResponse.parse({
+        refinements: refinements.map((refinement) => ({
+          id: refinement._id.toString(),
+          jobId: refinement.jobId ?? null,
+          jobTitle: refinement.jobTitle,
+          jobDescription: refinement.jobDescription,
+          refinedText: refinement.refinedText,
+          createdAt: refinement.createdAt.toISOString(),
+        })),
+      }),
+    );
+  } catch (err) {
+    sendInternalServerError(req, res, err, "getCvRefinements error");
+  }
+});
+
 router.post("/profile/cv/refine", requireAuth, async (req, res) => {
   try {
     await connectMongo();
@@ -327,19 +376,61 @@ router.post("/profile/cv/refine", requireAuth, async (req, res) => {
       return;
     }
     const result = await refineCvForJob(profile.cvText, jobTitle || "the role", jobDescription);
-    await Profile.updateOne(
-      { userId },
+    const generatedAt = await serializeRefinementWrite(userId, async () => {
+      const createdAt = new Date();
+      await CvRefinement.create({
+        userId,
+        jobTitle: jobTitle?.trim() || "General role",
+        jobDescription: jobDescription.trim().slice(0, 500),
+        refinedText: result.refinedCv,
+        createdAt,
+      });
+
+      const staleRefinements = await CvRefinement.find({ userId })
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(10)
+        .select({ _id: 1 });
+      if (staleRefinements.length > 0) {
+        await CvRefinement.deleteMany({
+          userId,
+          _id: { $in: staleRefinements.map((refinement) => refinement._id) },
+        });
+      }
+      return createdAt;
+    });
+
+    const currentProfile = await Profile.findOneAndUpdate(
+      {
+        userId,
+        cvText: profile.cvText,
+        ...(profile.cvUpdatedAt
+          ? { cvUpdatedAt: profile.cvUpdatedAt }
+          : {
+              $or: [
+                { cvUpdatedAt: { $exists: false } },
+                { cvUpdatedAt: null },
+              ],
+            }),
+      },
       {
         $set: {
           cvRefinement: {
             ...result,
             jobTitle: jobTitle || null,
             jobDescription,
-            generatedAt: new Date(),
+            generatedAt,
           },
         },
       },
+      { new: true },
     );
+    if (!currentProfile) {
+      res.status(409).json({
+        error:
+          "The CV changed while refinement was running. The saved result is available in refinement history.",
+      });
+      return;
+    }
     res.json(RefineCvResponse.parse(result));
   } catch (err) {
     sendInternalServerError(req, res, err, "cvRefine error");

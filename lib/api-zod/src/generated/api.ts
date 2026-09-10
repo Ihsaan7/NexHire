@@ -197,6 +197,21 @@ export const RefineCvResponse = zod.object({
 
 
 /**
+ * @summary Get the latest 10 saved CV refinements for the current user
+ */
+export const GetCvRefinementsResponse = zod.object({
+  "refinements": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullable(),
+  "jobTitle": zod.string(),
+  "jobDescription": zod.string(),
+  "refinedText": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
  * @summary Start an AI interview or skill practice session
  */
 

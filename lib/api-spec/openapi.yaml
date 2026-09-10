@@ -165,6 +165,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /profile/cv/refinements:
+    get:
+      operationId: getCvRefinements
+      tags: [profile]
+      summary: Get the latest 10 saved CV refinements for the current user
+      responses:
+        "200":
+          description: Latest saved CV refinements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CvRefinementListResponse"
+
   /practice/start:
     post:
       operationId: startPracticeSession
@@ -791,6 +804,39 @@ components:
       required:
         - refinedCv
         - changes
+
+    CvRefinementRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        jobId:
+          type: ["string", "null"]
+        jobTitle:
+          type: string
+        jobDescription:
+          type: string
+        refinedText:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - jobId
+        - jobTitle
+        - jobDescription
+        - refinedText
+        - createdAt
+
+    CvRefinementListResponse:
+      type: object
+      properties:
+        refinements:
+          type: array
+          items:
+            $ref: "#/components/schemas/CvRefinementRecord"
+      required:
+        - refinements
 
     PracticeMode:
       type: string
