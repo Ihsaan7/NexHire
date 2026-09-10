@@ -1,8 +1,35 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getAiUserId } from "./aiContext";
+import { consumeAiQuota } from "./aiQuota";
+import { AiRateLimitError, AiTimeoutError } from "./aiErrors";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const CHAT_MODEL = "gemini-2.5-flash-lite";
+const AI_TIMEOUT_MS = 30_000;
+export { AiRateLimitError, AiTimeoutError } from "./aiErrors";
+
+export async function callGemini<T>(
+  call: () => Promise<T>,
+  timeoutMs = AI_TIMEOUT_MS,
+): Promise<T> {
+  const userId = getAiUserId();
+  if (userId) await consumeAiQuota(userId);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      call(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new AiTimeoutError()), timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    if (error instanceof AiTimeoutError) throw error;
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 export const EMBEDDING_DIMENSIONS = 3072;
 export type PracticeQuestionGenerationLabel =
   | "AI-generated from web research"
@@ -97,7 +124,7 @@ export async function generatePracticeContentWithGrounding<T>(
         model: CHAT_MODEL,
         tools: PRACTICE_GROUNDING_TOOLS as any,
       });
-      const result = await groundedModel.generateContent(prompt);
+      const result = await callGemini(() => groundedModel.generateContent(prompt));
       return {
         text: result.response.text(),
         response: result.response,
@@ -105,7 +132,7 @@ export async function generatePracticeContentWithGrounding<T>(
     },
     generateFallback: async (prompt) => {
       const fallbackModel = genAI.getGenerativeModel({ model: CHAT_MODEL });
-      const result = await fallbackModel.generateContent(prompt);
+      const result = await callGemini(() => fallbackModel.generateContent(prompt));
       return { text: result.response.text() };
     },
   },
@@ -125,7 +152,10 @@ export async function generatePracticeContentWithGrounding<T>(
         sources,
       };
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof AiRateLimitError || error instanceof AiTimeoutError) {
+      throw error;
+    }
     // Grounded generation is optional; regular Gemini remains the fallback.
   }
 
@@ -140,7 +170,7 @@ export async function generatePracticeContentWithGrounding<T>(
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
-  const result = await model.embedContent(text);
+  const result = await callGemini(() => model.embedContent(text));
   const values = result.embedding.values;
   if (
     !Array.isArray(values) ||
@@ -192,7 +222,7 @@ Return ONLY valid JSON in this exact shape:
   "suggestions": [<2 actionable tweaks>]
 }`;
 
-  const result = await model.generateContent(prompt);
+  const result = await callGemini(() => model.generateContent(prompt));
   const text = result.response.text().trim();
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -214,7 +244,7 @@ ${cvText.slice(0, 3000)}
 
 Return ONLY a JSON array of 5 strings, each a specific actionable suggestion. No other text.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await callGemini(() => model.generateContent(prompt));
     const text = result.response.text().trim();
 
     const jsonMatch = text.match(/\[[\s\S]*\]/);
@@ -271,7 +301,7 @@ Check for these Pakistan-specific issues:
 
 Return 5-10 issues covering different categories. No extra text outside the JSON.`;
 
-  const result = await model.generateContent(prompt);
+  const result = await callGemini(() => model.generateContent(prompt));
   const text = result.response.text().trim();
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Gemini returned non-JSON response");
@@ -310,7 +340,7 @@ Rules:
 
 No extra text outside the JSON.`;
 
-  const result = await model.generateContent(prompt);
+  const result = await callGemini(() => model.generateContent(prompt));
   const text = result.response.text().trim();
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Gemini returned non-JSON response");
@@ -451,7 +481,7 @@ No extra text outside the JSON.`;
   let nextQuestionSources: PracticeQuestionSource[] = [];
   if (isLastQuestion) {
     const model = genAI.getGenerativeModel({ model: CHAT_MODEL });
-    const result = await model.generateContent(prompt);
+    const result = await callGemini(() => model.generateContent(prompt));
     parsed = parsePracticeContinuationResponse(
       result.response.text(),
       isLastQuestion,

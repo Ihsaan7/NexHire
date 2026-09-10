@@ -9,8 +9,26 @@ export interface CvFileInput {
   file: Blob;
 }
 
+export type HealthStatusStatus = typeof HealthStatusStatus[keyof typeof HealthStatusStatus];
+
+
+export const HealthStatusStatus = {
+  ok: 'ok',
+} as const;
+
+export type HealthStatusDb = typeof HealthStatusDb[keyof typeof HealthStatusDb];
+
+
+export const HealthStatusDb = {
+  connected: 'connected',
+} as const;
+
 export interface HealthStatus {
-  status: string;
+  status: HealthStatusStatus;
+  db: HealthStatusDb;
+  /** @nullable */
+  lastSync: string | null;
+  version: string;
 }
 
 export interface ErrorResponse {

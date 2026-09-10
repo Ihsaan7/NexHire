@@ -9,10 +9,24 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Production health check
+ */
+export const GetHealthResponse = zod.object({
+  "status": zod.enum(['ok']),
+  "db": zod.enum(['connected']),
+  "lastSync": zod.coerce.date().nullable(),
+  "version": zod.string()
+})
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
+  "status": zod.enum(['ok']),
+  "db": zod.enum(['connected']),
+  "lastSync": zod.coerce.date().nullable(),
+  "version": zod.string()
 })
 
 

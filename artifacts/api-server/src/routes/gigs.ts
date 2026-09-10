@@ -51,8 +51,9 @@ function formatGig(g: any, usdToPkr: number) {
 
 // POST /api/gigs/sync — Clerk-auth protected, triggers gig sync in background
 router.post("/gigs/sync", requireAuth, async (req, res) => {
-  if (!beginSync("gigs")) {
-    res.status(202).json({ message: "Gig sync is already running." });
+  const syncToken = await beginSync("gigs");
+  if (!syncToken) {
+    res.status(202).json({ message: "Sync already in progress. Check back shortly." });
     return;
   }
 
@@ -60,9 +61,9 @@ router.post("/gigs/sync", requireAuth, async (req, res) => {
   (async () => {
     try {
       const { total } = await runGigSync();
-      completeSync("gigs", `Gig sync completed. ${total} gigs are available.`);
+      await completeSync("gigs", syncToken, `Gig sync completed. ${total} gigs are available.`);
     } catch (err) {
-      failSync("gigs", "Gig sync failed. Try again.");
+      await failSync("gigs", syncToken, "Gig sync failed. Try again.");
       logger.error({ err }, "gigs/sync background error");
     }
   })();

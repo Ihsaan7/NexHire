@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { connectMongo } from "./mongodb";
+import { SyncStatus as SyncStatusModel } from "../models/SyncStatus";
+
 export type SyncKind = "jobs" | "gigs";
 export type SyncState = "idle" | "running" | "succeeded" | "failed";
 
@@ -9,59 +13,67 @@ export type SyncStatus = {
   message: string | null;
 };
 
-const statuses: Record<SyncKind, SyncStatus> = {
-  jobs: {
-    status: "idle",
-    startedAt: null,
-    completedAt: null,
-    lastSuccessAt: null,
-    message: null,
-  },
-  gigs: {
-    status: "idle",
-    startedAt: null,
-    completedAt: null,
-    lastSuccessAt: null,
-    message: null,
-  },
-};
+// Long enough for normal syncs, but bounded so a crashed worker is recoverable.
+export const SYNC_LEASE_MS = 60 * 60 * 1000;
 
-export function getSyncStatuses(): Record<SyncKind, SyncStatus> {
-  return {
-    jobs: { ...statuses.jobs },
-    gigs: { ...statuses.gigs },
-  };
+export async function getSyncStatuses(): Promise<Record<SyncKind, SyncStatus>> {
+  await connectMongo();
+  const records = await SyncStatusModel.find({ kind: { $in: ["jobs", "gigs"] } }).lean();
+  const idle = (): SyncStatus => ({
+    status: "idle", startedAt: null, completedAt: null, lastSuccessAt: null, message: null,
+  });
+  const result: Record<SyncKind, SyncStatus> = { jobs: idle(), gigs: idle() };
+  for (const record of records) {
+    result[record.kind as SyncKind] = {
+      status: record.status,
+      startedAt: record.startedAt?.toISOString() ?? null,
+      completedAt: record.completedAt?.toISOString() ?? null,
+      lastSuccessAt: record.lastSuccessAt?.toISOString() ?? null,
+      message: record.message ?? null,
+    };
+  }
+  return result;
 }
 
-export function beginSync(kind: SyncKind): boolean {
-  if (statuses[kind].status === "running") return false;
-
-  statuses[kind] = {
-    ...statuses[kind],
-    status: "running",
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    message: `${kind === "jobs" ? "Job" : "Gig"} sync is running.`,
-  };
-  return true;
+/** Atomically claims a kind; returns a worker token, or null when leased by another worker. */
+export async function beginSync(kind: SyncKind): Promise<string | null> {
+  await connectMongo();
+  const now = new Date();
+  const token = randomUUID();
+  try {
+    const claimed = await SyncStatusModel.findOneAndUpdate(
+      { kind, $or: [{ status: { $ne: "running" } }, { leaseUntil: { $lte: now } }] },
+      {
+        $set: {
+          status: "running", startedAt: now, completedAt: null,
+          message: `${kind === "jobs" ? "Job" : "Gig"} sync is running.`,
+          token, leaseUntil: new Date(now.getTime() + SYNC_LEASE_MS),
+        },
+        $setOnInsert: { kind },
+      },
+      { upsert: true, new: true },
+    );
+    return claimed ? token : null;
+  } catch (error: any) {
+    // Concurrent upserts can race on the unique kind index; the loser is a duplicate.
+    if (error?.code === 11000) return null;
+    throw error;
+  }
 }
 
-export function completeSync(kind: SyncKind, message: string): void {
-  const completedAt = new Date().toISOString();
-  statuses[kind] = {
-    ...statuses[kind],
-    status: "succeeded",
-    completedAt,
-    lastSuccessAt: completedAt,
-    message,
-  };
+export async function completeSync(kind: SyncKind, token: string, message: string): Promise<void> {
+  await connectMongo();
+  const completedAt = new Date();
+  await SyncStatusModel.updateOne(
+    { kind, token, status: "running" },
+    { $set: { status: "succeeded", completedAt, lastSuccessAt: completedAt, message, leaseUntil: null, token: null } },
+  );
 }
 
-export function failSync(kind: SyncKind, message: string): void {
-  statuses[kind] = {
-    ...statuses[kind],
-    status: "failed",
-    completedAt: new Date().toISOString(),
-    message,
-  };
+export async function failSync(kind: SyncKind, token: string, message: string): Promise<void> {
+  await connectMongo();
+  await SyncStatusModel.updateOne(
+    { kind, token, status: "running" },
+    { $set: { status: "failed", completedAt: new Date(), message, leaseUntil: null, token: null } },
+  );
 }

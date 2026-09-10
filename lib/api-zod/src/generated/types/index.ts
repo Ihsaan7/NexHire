@@ -26,6 +26,8 @@ export * from './getMatchedJobsParams';
 export * from './gig';
 export * from './gigListResponse';
 export * from './healthStatus';
+export * from './healthStatusDb';
+export * from './healthStatusStatus';
 export * from './job';
 export * from './jobListResponse';
 export * from './jobStats';

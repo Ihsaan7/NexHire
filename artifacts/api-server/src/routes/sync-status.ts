@@ -5,8 +5,8 @@ import { requireAuth } from "./auth";
 
 const router = Router();
 
-router.get("/sync/status", requireAuth, (_req, res) => {
-  res.json(GetSyncStatusResponse.parse(getSyncStatuses()));
+router.get("/sync/status", requireAuth, async (_req, res) => {
+  res.json(GetSyncStatusResponse.parse(await getSyncStatuses()));
 });
 
 export default router;

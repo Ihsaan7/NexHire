@@ -6,8 +6,8 @@ import { Job } from "../models/Job";
 import { Profile } from "../models/Profile";
 import { MatchAnalysis } from "../models/MatchAnalysis";
 import { analyzeJobMatch, EMBEDDING_DIMENSIONS } from "../lib/gemini";
-import { checkRateLimit } from "../lib/rateLimit";
 import { logger } from "../lib/logger";
+import { isDatabaseTimeoutError } from "../lib/databaseErrors";
 import {
   AnalyzeJobMatchParams,
   AnalyzeJobMatchResponse,
@@ -296,6 +296,7 @@ router.get("/jobs/matched", requireAuth, async (req, res) => {
 
       res.json(GetMatchedJobsResponse.parse({ jobs, hasCV: true }));
     } catch (vectorErr: any) {
+      if (isDatabaseTimeoutError(vectorErr)) throw vectorErr;
       logger.warn(
         { err: vectorErr?.message },
         "Vector search unavailable, falling back to local cosine scoring",
@@ -304,6 +305,7 @@ router.get("/jobs/matched", requireAuth, async (req, res) => {
         const jobs = await findLocalVectorMatches(profile.cvEmbedding, limitNum);
         res.json(GetMatchedJobsResponse.parse({ jobs, hasCV: true }));
       } catch (fallbackErr: any) {
+        if (isDatabaseTimeoutError(fallbackErr)) throw fallbackErr;
         logger.error(
           { err: fallbackErr?.message },
           "Local vector fallback failed",
@@ -416,15 +418,6 @@ router.get("/jobs/:id/analyze", requireAuth, async (req, res) => {
         suggestions: cached.suggestions,
         cachedAt: cached.cachedAt.toISOString(),
       }));
-      return;
-    }
-
-    // Rate limit
-    const rateCheck = checkRateLimit(userId);
-    if (!rateCheck.allowed) {
-      res.status(429).json({
-        error: `Rate limit exceeded. Resets at ${new Date(rateCheck.resetAt).toISOString()}`,
-      });
       return;
     }
 

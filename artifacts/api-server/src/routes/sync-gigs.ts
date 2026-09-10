@@ -4,6 +4,7 @@ import { connectMongo } from "../lib/mongodb";
 import { Gig } from "../models/Gig";
 import { logger } from "../lib/logger";
 import { beginSync, completeSync, failSync } from "../lib/syncStatus";
+import { AiTimeoutError } from "../lib/aiErrors";
 
 const router = Router();
 
@@ -48,7 +49,7 @@ Return this exact JSON shape:
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 300 },
         }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30000),
       },
     );
 
@@ -61,7 +62,10 @@ Return this exact JSON shape:
     if (!match) return null;
 
     return JSON.parse(match[0]);
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      throw new AiTimeoutError();
+    }
     return null;
   }
 }
@@ -346,8 +350,9 @@ router.post("/cron/sync-gigs", async (req, res) => {
     return;
   }
 
-  if (!beginSync("gigs")) {
-    res.status(202).json({ message: "Gig sync is already running." });
+  const syncToken = await beginSync("gigs");
+  if (!syncToken) {
+    res.status(202).json({ message: "Sync already in progress. Check back shortly." });
     return;
   }
 
@@ -356,9 +361,9 @@ router.post("/cron/sync-gigs", async (req, res) => {
   (async () => {
     try {
       const { total } = await runGigSync();
-      completeSync("gigs", `Gig sync completed. ${total} gigs are available.`);
+      await completeSync("gigs", syncToken, `Gig sync completed. ${total} gigs are available.`);
     } catch (err) {
-      failSync("gigs", "Gig sync failed. Try again.");
+      await failSync("gigs", syncToken, "Gig sync failed. Try again.");
       logger.error({ err }, "sync-gigs background error");
     }
   })();

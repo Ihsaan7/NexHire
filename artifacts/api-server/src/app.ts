@@ -11,6 +11,10 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { isAllowedCorsOrigin } from "./lib/env";
+import { isMongoReady } from "./lib/mongodb";
+import { isDatabaseTimeoutError } from "./lib/databaseErrors";
+import { AiRateLimitError, AiTimeoutError } from "./lib/aiErrors";
 
 const app: Express = express();
 
@@ -37,7 +41,15 @@ app.use(
 // Clerk proxy must come before body parsers
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-app.use(cors({ credentials: true, origin: true }));
+app.use(
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      const allowed = isAllowedCorsOrigin(origin);
+      callback(allowed ? null : new Error("CORS origin is not allowed"), allowed);
+    },
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -50,7 +62,21 @@ app.use(
   })),
 );
 
-app.use("/api", router);
+app.use(
+  "/api",
+  (req, res, next) => {
+    if (req.path === "/health" || req.path === "/healthz") {
+      next();
+      return;
+    }
+    if (!isMongoReady()) {
+      res.status(503).json({ error: "Service temporarily unavailable" });
+      return;
+    }
+    next();
+  },
+  router,
+);
 
 app.use("/api", (_req, res) => {
   res.status(404).json({ error: "API endpoint not found" });
@@ -84,6 +110,35 @@ app.use(
     if (err instanceof SyntaxError) {
       req.log.warn({ err: err.message }, "Malformed JSON request");
       res.status(400).json({ error: "Invalid JSON request body" });
+      return;
+    }
+
+    if (err instanceof Error && err.message === "CORS origin is not allowed") {
+      res.status(403).json({ error: "CORS origin is not allowed" });
+      return;
+    }
+
+    if (err instanceof AiRateLimitError) {
+      const remaining = Math.max(
+        1,
+        Math.ceil((new Date(err.resetAt).getTime() - Date.now()) / 60000),
+      );
+      res.status(429).json({
+        error: `AI limit reached. Try again in ${remaining} minutes.`,
+        resetAt: err.resetAt,
+      });
+      return;
+    }
+
+    if (err instanceof AiTimeoutError) {
+      res.status(504).json({ error: "AI service timed out. Please try again." });
+      return;
+    }
+
+    if (isDatabaseTimeoutError(err)) {
+      res
+        .status(504)
+        .json({ error: "Database request timed out. Please try again." });
       return;
     }
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
+import { runWithAiUser } from "../lib/aiContext";
 
 export const requireAuth = (
   req: Request,
@@ -14,7 +15,7 @@ export const requireAuth = (
     return;
   }
   (req as any).userId = userId;
-  next();
+  runWithAiUser(userId, next);
 };
 
 const router = Router();

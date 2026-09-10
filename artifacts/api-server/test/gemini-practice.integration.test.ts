@@ -5,7 +5,41 @@ import {
   generatePracticeContentWithGrounding,
   parsePracticeContinuationResponse,
   PRACTICE_GROUNDING_TOOLS,
+  callGemini,
 } from "../src/lib/gemini.ts";
+import { AiTimeoutError } from "../src/lib/aiErrors.ts";
+
+test("classifies Gemini calls that exceed their deadline", async () => {
+  await assert.rejects(
+    callGemini(
+      () => new Promise<string>(() => undefined),
+      5,
+    ),
+    AiTimeoutError,
+  );
+});
+
+test("does not hide a grounded AI timeout behind fallback generation", async () => {
+  let fallbackCalled = false;
+  await assert.rejects(
+    generatePracticeContentWithGrounding(
+      "grounded",
+      "fallback",
+      (text) => text,
+      {
+        generateGrounded: async () => {
+          throw new AiTimeoutError();
+        },
+        generateFallback: async () => {
+          fallbackCalled = true;
+          return { text: "fallback" };
+        },
+      },
+    ),
+    AiTimeoutError,
+  );
+  assert.equal(fallbackCalled, false);
+});
 
 test("silently falls back when grounding fails or returns no sources", async () => {
   for (const groundedBehavior of ["throw", "empty"] as const) {

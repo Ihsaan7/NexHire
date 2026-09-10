@@ -237,8 +237,9 @@ router.post("/cron/sync-adzuna", async (req, res) => {
     return;
   }
 
-  if (!beginSync("jobs")) {
-    res.status(202).json({ message: "Job sync is already running." });
+  const syncToken = await beginSync("jobs");
+  if (!syncToken) {
+    res.status(202).json({ message: "Sync already in progress. Check back shortly." });
     return;
   }
 
@@ -470,12 +471,13 @@ router.post("/cron/sync-adzuna", async (req, res) => {
     const deleted = deleteResult.deletedCount ?? 0;
 
     logger.info({ inserted, updated, deleted, errors }, "Job sync complete");
-    completeSync(
+    await completeSync(
       "jobs",
+      syncToken,
       `Job sync completed: ${inserted} added, ${updated} updated, ${deleted} removed, ${errors} errors.`,
     );
   } catch (err) {
-    failSync("jobs", "Job sync failed. Check server logs for details.");
+    await failSync("jobs", syncToken, "Job sync failed. Check server logs for details.");
     logger.error({ err }, "syncJobs background error");
   }
   })();

@@ -23,6 +23,25 @@ tags:
     description: Interview and skill practice
 
 paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      summary: Production health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /healthz:
     get:
       operationId: healthCheck
@@ -35,6 +54,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /profile:
     get:
@@ -720,8 +745,20 @@ components:
       properties:
         status:
           type: string
+          enum: [ok]
+        db:
+          type: string
+          enum: [connected]
+        lastSync:
+          type: ["string", "null"]
+          format: date-time
+        version:
+          type: string
       required:
         - status
+        - db
+        - lastSync
+        - version
 
     ErrorResponse:
       type: object
