@@ -7,6 +7,7 @@ import { beginSync, completeSync, failSync } from "../lib/syncStatus";
 import { AiTimeoutError } from "../lib/aiErrors";
 import { AiRateLimitError } from "../lib/aiErrors";
 import { callGemini } from "../lib/gemini";
+import { registerBackgroundTask } from "../lib/backgroundTask";
 
 const router = Router();
 
@@ -374,7 +375,7 @@ router.post("/cron/sync-gigs", async (req, res) => {
 
   res.status(202).json({ message: "Gig sync started in background." });
 
-  (async () => {
+  registerBackgroundTask((async () => {
     try {
       const { total } = await runGigSync();
       await completeSync("gigs", syncToken, `Gig sync completed. ${total} gigs are available.`);
@@ -382,7 +383,7 @@ router.post("/cron/sync-gigs", async (req, res) => {
       await failSync("gigs", syncToken, "Gig sync failed. Try again.");
       logger.error({ err }, "sync-gigs background error");
     }
-  })();
+  })());
 });
 
 export default router;

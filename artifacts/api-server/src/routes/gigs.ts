@@ -9,6 +9,7 @@ import { runGigSync } from "./sync-gigs";
 import { ListGigsQueryParams, ListGigsResponse } from "@workspace/api-zod";
 import { sendInternalServerError, sendValidationError } from "../lib/http";
 import { beginSync, completeSync, failSync } from "../lib/syncStatus";
+import { registerBackgroundTask } from "../lib/backgroundTask";
 
 const router = Router();
 
@@ -60,7 +61,7 @@ router.post("/gigs/sync", requireAuth, async (req, res) => {
   }
 
   res.status(202).json({ message: "Gig sync started." });
-  (async () => {
+  registerBackgroundTask((async () => {
     try {
       const { total } = await runGigSync(userId);
       await completeSync("gigs", syncToken, `Gig sync completed. ${total} gigs are available.`);
@@ -77,7 +78,7 @@ router.post("/gigs/sync", requireAuth, async (req, res) => {
       await failSync("gigs", syncToken, message);
       logger.error({ err }, "gigs/sync background error");
     }
-  })();
+  })());
 });
 
 // GET /api/gigs

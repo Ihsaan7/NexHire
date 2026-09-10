@@ -5,6 +5,7 @@ import { Job } from "../models/Job";
 import { generateEmbedding } from "../lib/gemini";
 import { logger } from "../lib/logger";
 import { beginSync, completeSync, failSync } from "../lib/syncStatus";
+import { registerBackgroundTask } from "../lib/backgroundTask";
 
 const router = Router();
 
@@ -247,7 +248,7 @@ router.post("/cron/sync-adzuna", async (req, res) => {
   res.status(202).json({ message: "Sync started in background. Check logs for progress." });
 
   // Run async without blocking response
-  (async () => {
+  registerBackgroundTask((async () => {
   try {
     await connectMongo();
 
@@ -480,7 +481,7 @@ router.post("/cron/sync-adzuna", async (req, res) => {
     await failSync("jobs", syncToken, "Job sync failed. Check server logs for details.");
     logger.error({ err }, "syncJobs background error");
   }
-  })();
+  })());
 });
 
 export default router;
