@@ -8,6 +8,14 @@ export type PracticeSessionStatus =
   | "active"
   | "completed"
   | "abandoned";
+export type PracticeQuestionGenerationLabel =
+  | "AI-generated from web research"
+  | "AI-generated";
+
+export interface IPracticeQuestionSource {
+  site: string;
+  url: string;
+}
 
 export interface IPracticeSessionMessage {
   role: PracticeSessionRole;
@@ -22,6 +30,8 @@ export interface IPracticeSessionQuestion {
   aiFeedback?: string | null;
   score?: number | null;
   category?: string | null;
+  generationLabel?: PracticeQuestionGenerationLabel;
+  sources?: IPracticeQuestionSource[];
 }
 
 export interface IPracticeSession extends Document {
@@ -63,6 +73,23 @@ const PracticeSessionQuestionSchema = new Schema<IPracticeSessionQuestion>(
     aiFeedback: { type: String, default: null },
     score: { type: Number, default: null },
     category: { type: String, maxlength: 100, default: null },
+    generationLabel: {
+      type: String,
+      enum: ["AI-generated from web research", "AI-generated"],
+      default: "AI-generated",
+    },
+    sources: {
+      type: [
+        new Schema<IPracticeQuestionSource>(
+          {
+            site: { type: String, required: true, maxlength: 120 },
+            url: { type: String, required: true, maxlength: 2048 },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
   },
   { _id: false },
 );

@@ -47,6 +47,8 @@ export * from './practiceHistoryResponse';
 export * from './practiceMessageInput';
 export * from './practiceMessageResult';
 export * from './practiceMode';
+export * from './practiceQuestionGenerationLabel';
+export * from './practiceQuestionSource';
 export * from './practiceSession';
 export * from './practiceSessionMessage';
 export * from './practiceSessionMessageRole';

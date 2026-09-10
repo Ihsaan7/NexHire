@@ -1036,11 +1036,19 @@ components:
           type: string
         questionNumber:
           type: integer
+        generationLabel:
+          $ref: "#/components/schemas/PracticeQuestionGenerationLabel"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeQuestionSource"
       required:
         - sessionId
         - intro
         - firstQuestion
         - questionNumber
+        - generationLabel
+        - sources
 
     PracticeMessageInput:
       type: object
@@ -1093,6 +1101,14 @@ components:
           type: string
         questionNumber:
           type: integer
+        nextQuestionGenerationLabel:
+          oneOf:
+            - $ref: "#/components/schemas/PracticeQuestionGenerationLabel"
+            - type: "null"
+        nextQuestionSources:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeQuestionSource"
       required:
         - sessionId
         - feedback
@@ -1100,6 +1116,8 @@ components:
         - category
         - isComplete
         - questionNumber
+        - nextQuestionGenerationLabel
+        - nextQuestionSources
 
     PracticeSessionMessage:
       type: object
@@ -1117,6 +1135,24 @@ components:
         - role
         - content
 
+    PracticeQuestionGenerationLabel:
+      type: string
+      enum:
+        - AI-generated from web research
+        - AI-generated
+
+    PracticeQuestionSource:
+      type: object
+      properties:
+        site:
+          type: string
+        url:
+          type: string
+          format: uri
+      required:
+        - site
+        - url
+
     PracticeSessionQuestion:
       type: object
       properties:
@@ -1130,9 +1166,17 @@ components:
           type: ["number", "null"]
         category:
           type: ["string", "null"]
+        generationLabel:
+          $ref: "#/components/schemas/PracticeQuestionGenerationLabel"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeQuestionSource"
       required:
         - question
         - category
+        - generationLabel
+        - sources
 
     PracticeSkillBreakdown:
       type: object

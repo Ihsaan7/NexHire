@@ -4,6 +4,139 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const CHAT_MODEL = "gemini-2.5-flash-lite";
 export const EMBEDDING_DIMENSIONS = 3072;
+export type PracticeQuestionGenerationLabel =
+  | "AI-generated from web research"
+  | "AI-generated";
+export type PracticeQuestionSource = { site: string; url: string };
+export const PRACTICE_GROUNDING_TOOLS = [{ googleSearch: {} }] as const;
+
+function isPrivateHostname(hostname: string) {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    normalized === "localhost" ||
+    normalized === "::1" ||
+    normalized.endsWith(".localhost") ||
+    normalized.endsWith(".local") ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80:")
+  ) {
+    return true;
+  }
+  const parts = normalized.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) {
+    return false;
+  }
+  return (
+    parts[0] === 10 ||
+    parts[0] === 127 ||
+    (parts[0] === 169 && parts[1] === 254) ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168) ||
+    parts[0] === 0
+  );
+}
+
+export function extractPracticeGroundingSources(
+  response: unknown,
+): PracticeQuestionSource[] {
+  const candidates = (response as any)?.candidates;
+  if (!Array.isArray(candidates)) return [];
+
+  const sources = new Map<string, PracticeQuestionSource>();
+  for (const candidate of candidates) {
+    const chunks = candidate?.groundingMetadata?.groundingChunks;
+    if (!Array.isArray(chunks)) continue;
+    for (const chunk of chunks) {
+      const rawUri = chunk?.web?.uri;
+      if (typeof rawUri !== "string" || rawUri.length > 2048) continue;
+      try {
+        const url = new URL(rawUri);
+        if (
+          url.protocol !== "https:" ||
+          url.username ||
+          url.password ||
+          (url.port && url.port !== "443") ||
+          isPrivateHostname(url.hostname)
+        ) {
+          continue;
+        }
+        url.hash = "";
+        const canonicalUrl =
+          url.pathname === "/" && !url.search
+            ? `${url.origin}/`
+            : url.toString().replace(/\/$/, "");
+        if (sources.has(canonicalUrl)) continue;
+        const rawTitle =
+          typeof chunk.web.title === "string" ? chunk.web.title : "";
+        const site =
+          rawTitle.trim().replace(/\s+/g, " ").slice(0, 120) ||
+          url.hostname.replace(/^www\./, "");
+        sources.set(canonicalUrl, { site, url: canonicalUrl });
+        if (sources.size >= 5) return [...sources.values()];
+      } catch {
+        continue;
+      }
+    }
+  }
+  return [...sources.values()];
+}
+
+export async function generatePracticeContentWithGrounding<T>(
+  groundedPrompt: string,
+  fallbackPrompt: string,
+  parse: (text: string) => T,
+  dependencies: {
+    generateGrounded: (
+      prompt: string,
+    ) => Promise<{ text: string; response: unknown }>;
+    generateFallback: (prompt: string) => Promise<{ text: string }>;
+  } = {
+    generateGrounded: async (prompt) => {
+      const groundedModel = genAI.getGenerativeModel({
+        model: CHAT_MODEL,
+        tools: PRACTICE_GROUNDING_TOOLS as any,
+      });
+      const result = await groundedModel.generateContent(prompt);
+      return {
+        text: result.response.text(),
+        response: result.response,
+      };
+    },
+    generateFallback: async (prompt) => {
+      const fallbackModel = genAI.getGenerativeModel({ model: CHAT_MODEL });
+      const result = await fallbackModel.generateContent(prompt);
+      return { text: result.response.text() };
+    },
+  },
+): Promise<{
+  value: T;
+  generationLabel: PracticeQuestionGenerationLabel;
+  sources: PracticeQuestionSource[];
+}> {
+  try {
+    const groundedResult =
+      await dependencies.generateGrounded(groundedPrompt);
+    const sources = extractPracticeGroundingSources(groundedResult.response);
+    if (sources.length > 0) {
+      return {
+        value: parse(groundedResult.text),
+        generationLabel: "AI-generated from web research",
+        sources,
+      };
+    }
+  } catch {
+    // Grounded generation is optional; regular Gemini remains the fallback.
+  }
+
+  const fallbackResult =
+    await dependencies.generateFallback(fallbackPrompt);
+  return {
+    value: parse(fallbackResult.text),
+    generationLabel: "AI-generated",
+    sources: [],
+  };
+}
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
@@ -190,9 +323,12 @@ export async function startPracticeSession(params: {
   jobTitle?: string;
   jobDescription?: string;
   topic?: string;
-}): Promise<{ intro: string; firstQuestion: string }> {
-  const model = genAI.getGenerativeModel({ model: CHAT_MODEL });
-
+}): Promise<{
+  intro: string;
+  firstQuestion: string;
+  generationLabel: PracticeQuestionGenerationLabel;
+  sources: PracticeQuestionSource[];
+}> {
   let context = "";
   if (params.mode === "cv" && params.cvText) {
     context = `The candidate's CV:\n${params.cvText.slice(0, 2500)}`;
@@ -214,11 +350,36 @@ Return ONLY valid JSON:
 
 No extra text outside the JSON.`;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text().trim();
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Gemini returned non-JSON");
-  return JSON.parse(jsonMatch[0]);
+  const groundedPrompt = `${prompt}
+
+Before choosing the question, use Google Search to research:
+- current interview questions for this role or topic in Pakistan
+- remote-job interview expectations for this role
+- recent technical test formats for this stack or skill
+Use that research as context. Do not put citations or source URLs inside the JSON.`;
+  const generated = await generatePracticeContentWithGrounding(
+    groundedPrompt,
+    prompt,
+    (text) => {
+      const jsonMatch = text.trim().match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Gemini returned non-JSON");
+      const value = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+      const intro = typeof value.intro === "string" ? value.intro.trim() : "";
+      const firstQuestion =
+        typeof value.firstQuestion === "string"
+          ? value.firstQuestion.trim()
+          : "";
+      if (!intro || !firstQuestion) {
+        throw new Error("Gemini returned an invalid practice start");
+      }
+      return { intro, firstQuestion };
+    },
+  );
+  return {
+    ...generated.value,
+    generationLabel: generated.generationLabel,
+    sources: generated.sources,
+  };
 }
 
 export async function continuePracticeSession(params: {
@@ -237,9 +398,9 @@ export async function continuePracticeSession(params: {
   nextQuestion?: string;
   isComplete: boolean;
   summary?: string;
+  nextQuestionGenerationLabel: PracticeQuestionGenerationLabel | null;
+  nextQuestionSources: PracticeQuestionSource[];
 }> {
-  const model = genAI.getGenerativeModel({ model: CHAT_MODEL });
-
   let context = "";
   if (params.mode === "cv" && params.cvText) {
     context = `Candidate background (from CV):\n${params.cvText.slice(0, 1200)}`;
@@ -284,13 +445,42 @@ ${
 
 No extra text outside the JSON.`;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text().trim();
-  const parsed = parsePracticeContinuationResponse(text, isLastQuestion);
+  let parsed;
+  let nextQuestionGenerationLabel: PracticeQuestionGenerationLabel | null =
+    null;
+  let nextQuestionSources: PracticeQuestionSource[] = [];
+  if (isLastQuestion) {
+    const model = genAI.getGenerativeModel({ model: CHAT_MODEL });
+    const result = await model.generateContent(prompt);
+    parsed = parsePracticeContinuationResponse(
+      result.response.text(),
+      isLastQuestion,
+    );
+  } else {
+    const groundedPrompt = `${prompt}
+
+Before choosing the next question, use Google Search to research:
+- current interview questions for this role or topic in Pakistan
+- remote-job interview expectations for this role
+- recent technical test formats for this stack or skill
+Use that research as context. Do not put citations or source URLs inside the JSON.`;
+    const generated = await generatePracticeContentWithGrounding(
+      groundedPrompt,
+      prompt,
+      (text) => parsePracticeContinuationResponse(text, false),
+    );
+    parsed = generated.value;
+    nextQuestionGenerationLabel = generated.generationLabel;
+    nextQuestionSources = generated.sources;
+  }
   if (parsed.category === null) {
     console.warn("Gemini practice response did not include a valid category");
   }
-  return parsed;
+  return {
+    ...parsed,
+    nextQuestionGenerationLabel,
+    nextQuestionSources,
+  };
 }
 
 export function parsePracticeContinuationResponse(

@@ -1,0 +1,84 @@
+I am starting Phase 4 — the final phase before deployment review.
+Read all existing code carefully before making changes.
+One item at a time, wait for confirmation before proceeding.
+
+--- PHASE 4: REAL WEB SEARCH IN PRACTICE + FINAL HARDENING ---
+
+4A. REAL WEB SEARCH FOR PRACTICE QUESTIONS
+- The Practice feature currently generates questions using
+  Gemini without searching the web. This must change.
+- Integrate Gemini's built-in Google Search grounding tool
+  (available via the Gemini API at no extra cost):
+  tools: [{ googleSearch: {} }]
+- When a practice session starts, use grounded search to find:
+  * Current interview questions for this role/topic in Pakistan
+  * Remote job interview expectations for this role
+  * Recent technical test formats for this stack/skill
+- Use the grounding citations returned by Gemini to display
+  source links below each question:
+  "Source: [site name] — [url]"
+- Clearly label questions as:
+  "AI-generated from web research" (if grounding was used)
+  "AI-generated" (if grounding returned no results)
+- Never pretend web-sourced questions came from AI generation
+  alone — always show sources when they exist
+- Fallback: if Google Search grounding fails or returns
+  nothing, silently fall back to regular Gemini generation
+  and label questions as "AI-generated"
+
+4B. PRODUCTION HARDENING
+- Add startup environment validation:
+  On server start, check all required env vars exist
+  (MONGODB_URI, GEMINI_API_KEY, CLERK keys, CRON_SECRET)
+  If any are missing, log clearly and refuse to start
+- Add database readiness check:
+  Before handling any request, confirm MongoDB is connected
+  Return 503 with "Service temporarily unavailable" if not
+- Add AI rate limiting per user:
+  Max 30 Gemini calls per user per hour
+  Return clear message: "AI limit reached. Try again in
+  X minutes." with the exact reset time
+- Add request timeouts:
+  All Gemini calls: 30 second timeout
+  All DB queries: 10 second timeout
+  Return 504 with friendly message on timeout
+- Restrict CORS:
+  Only allow requests from your production domain
+  and localhost during development
+- Add sync lock:
+  If a job sync is already running, block a second trigger
+  Return: "Sync already in progress. Check back shortly."
+- Add health check endpoint:
+  GET /api/health
+  Returns: { status: "ok", db: "connected",
+  lastSync: <timestamp>, version: "1.0.0" }
+
+4C. FINAL PRE-DEPLOYMENT CHECKLIST
+Once 4A and 4B are done, run through this and confirm each:
+
+[ ] All environment variables documented in .env.example
+[ ] No secrets committed to GitHub (.env in .gitignore)
+[ ] All console.log statements removed or replaced with
+    proper logger
+[ ] Rate limiting active on all AI endpoints
+[ ] CORS restricted to production domain
+[ ] MongoDB indexes created (especially Vector Search index)
+[ ] Health check endpoint returns 200
+[ ] Frontend production build passes with zero errors
+[ ] All TypeScript errors resolved
+[ ] OpenAPI contract matches all live endpoints
+[ ] Onboarding flow tested on fresh account
+[ ] CV upload, audit, refinement, delete all working
+[ ] Practice sessions persist across refresh
+[ ] Job matching returns correct AI-matched label
+[ ] Sync status visible and duplicate sync blocked
+
+Report each checklist item as PASS or FAIL.
+Fix any FAIL items before declaring Phase 4 complete.
+
+--- RULES ---
+- 4A first, then 4B, then 4C checklist
+- Wait for my confirmation after each item
+- Do not add any new features — hardening only
+- When 4C checklist is all PASS, the app is ready for
+  deployment review

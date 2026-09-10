@@ -65,6 +65,8 @@ router.post("/practice/start", requireAuth, async (req, res) => {
         aiFeedback: null,
         score: null,
         category: null,
+        generationLabel: result.generationLabel,
+        sources: result.sources,
       }],
       currentQuestion: result.firstQuestion,
       questionNumber: 1,
@@ -285,12 +287,17 @@ router.post("/practice/message", requireAuth, async (req, res) => {
     }
 
     const answeredQuestions = getPersistedQuestions(session);
+    const currentQuestionMetadata =
+      answeredQuestions[session.questionNumber - 1];
     answeredQuestions[session.questionNumber - 1] = {
       question: session.currentQuestion,
       userAnswer: answer,
       aiFeedback: null,
       score: null,
       category: null,
+      generationLabel:
+        currentQuestionMetadata?.generationLabel ?? "AI-generated",
+      sources: currentQuestionMetadata?.sources ?? [],
     };
     const submissionToken = randomUUID();
     const pendingAnswerStartedAt = new Date();
@@ -378,6 +385,9 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       aiFeedback: result.feedback,
       score: result.score,
       category: result.category,
+      generationLabel:
+        currentQuestionMetadata?.generationLabel ?? "AI-generated",
+      sources: currentQuestionMetadata?.sources ?? [],
     };
     if (!isComplete && result.nextQuestion) {
       updatedQuestions.push({
@@ -386,6 +396,9 @@ router.post("/practice/message", requireAuth, async (req, res) => {
         aiFeedback: null,
         score: null,
         category: null,
+        generationLabel:
+          result.nextQuestionGenerationLabel ?? "AI-generated",
+        sources: result.nextQuestionSources,
       });
     }
     const totalScore = scores.length
@@ -447,6 +460,23 @@ function getPersistedQuestions(session: any) {
       aiFeedback: question.aiFeedback ?? null,
       score: question.score ?? null,
       category: question.category ?? null,
+      generationLabel:
+        question.generationLabel === "AI-generated from web research"
+          ? "AI-generated from web research"
+          : "AI-generated",
+      sources: Array.isArray(question.sources)
+        ? question.sources
+            .filter(
+              (source: any) =>
+                typeof source?.site === "string" &&
+                typeof source?.url === "string",
+            )
+            .slice(0, 5)
+            .map((source: any) => ({
+              site: source.site,
+              url: source.url,
+            }))
+        : [],
     }));
   }
 
@@ -456,6 +486,10 @@ function getPersistedQuestions(session: any) {
     aiFeedback: string | null;
     score: number | null;
     category: string | null;
+    generationLabel:
+      | "AI-generated from web research"
+      | "AI-generated";
+    sources: { site: string; url: string }[];
   }[] = [];
   for (let index = 0; index < session.messages.length; index += 1) {
     const message = session.messages[index];
@@ -467,6 +501,8 @@ function getPersistedQuestions(session: any) {
         aiFeedback: message.feedback ?? null,
         score: message.score ?? null,
         category: null,
+        generationLabel: "AI-generated",
+        sources: [],
       });
     }
   }

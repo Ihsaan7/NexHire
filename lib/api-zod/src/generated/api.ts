@@ -262,7 +262,12 @@ export const StartPracticeSessionResponse = zod.object({
   "sessionId": zod.string(),
   "intro": zod.string(),
   "firstQuestion": zod.string(),
-  "questionNumber": zod.number()
+  "questionNumber": zod.number(),
+  "generationLabel": zod.enum(['AI-generated from web research', 'AI-generated']),
+  "sources": zod.array(zod.object({
+  "site": zod.string(),
+  "url": zod.string().url()
+}))
 })
 
 
@@ -286,7 +291,12 @@ export const GetLatestPracticeSessionResponse = zod.union([zod.object({
   "userAnswer": zod.string().nullish(),
   "aiFeedback": zod.string().nullish(),
   "score": zod.number().nullish(),
-  "category": zod.string().nullable()
+  "category": zod.string().nullable(),
+  "generationLabel": zod.enum(['AI-generated from web research', 'AI-generated']),
+  "sources": zod.array(zod.object({
+  "site": zod.string(),
+  "url": zod.string().url()
+}))
 })),
   "currentQuestion": zod.string(),
   "questionNumber": zod.number(),
@@ -360,7 +370,12 @@ export const GetPracticeHistorySessionResponse = zod.object({
   "userAnswer": zod.string().nullish(),
   "aiFeedback": zod.string().nullish(),
   "score": zod.number().nullish(),
-  "category": zod.string().nullable()
+  "category": zod.string().nullable(),
+  "generationLabel": zod.enum(['AI-generated from web research', 'AI-generated']),
+  "sources": zod.array(zod.object({
+  "site": zod.string(),
+  "url": zod.string().url()
+}))
 })),
   "currentQuestion": zod.string(),
   "questionNumber": zod.number(),
@@ -409,7 +424,12 @@ export const SendPracticeMessageResponse = zod.object({
   "nextQuestion": zod.string().optional(),
   "isComplete": zod.boolean(),
   "summary": zod.string().optional(),
-  "questionNumber": zod.number()
+  "questionNumber": zod.number(),
+  "nextQuestionGenerationLabel": zod.union([zod.enum(['AI-generated from web research', 'AI-generated']),zod.null()]),
+  "nextQuestionSources": zod.array(zod.object({
+  "site": zod.string(),
+  "url": zod.string().url()
+}))
 })
 
 

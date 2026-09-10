@@ -32,3 +32,9 @@ Generate a skill category during each answer evaluation and commit it in the sam
 **Why:** Categorizing in a second completion pass creates another failure point and can leave finished sessions partially analyzed. Category averages avoid contradictory labels when one skill appears more than once.
 
 **How to apply:** Keep categories open-ended, trimmed, and nullable for legacy or malformed AI output. Never infer missing legacy categories or classify unanswered/unscored questions.
+
+Practice questions use Google Search grounding first and store citation metadata with the exact question. Only label a question as web-researched when at least one validated citation is present.
+
+**Why:** Grounding can run searches yet return no citation chunks, and citations can disappear if question records are replaced during answer checkpointing. A plain-generation fallback must remain truthful.
+
+**How to apply:** Ground the first and every generated follow-up question, silently retry plain Gemini on any grounded failure or zero valid sources, and preserve sources through leases, reloads, and history.

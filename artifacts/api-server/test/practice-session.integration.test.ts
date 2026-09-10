@@ -11,6 +11,10 @@ type StoredQuestion = {
   aiFeedback?: string | null;
   score?: number | null;
   category?: string | null;
+  generationLabel?:
+    | "AI-generated from web research"
+    | "AI-generated";
+  sources?: { site: string; url: string }[];
 };
 
 type StoredSession = {
@@ -239,6 +243,13 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
     startPracticeSession: async () => ({
       intro: "We will complete a two-question interview.",
       firstQuestion: "Tell me about a difficult backend problem.",
+      generationLabel: "AI-generated from web research",
+      sources: [
+        {
+          site: "Pakistan Engineering Careers",
+          url: "https://careers.example.com/interviews",
+        },
+      ],
     }),
     continuePracticeSession: async () => {
       if (failNextContinuation) {
@@ -255,6 +266,13 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
           category: "Communication",
           nextQuestion: "How do you prevent duplicate writes?",
           isComplete: false,
+          nextQuestionGenerationLabel: "AI-generated from web research",
+          nextQuestionSources: [
+            {
+              site: "Remote Interview Guide",
+              url: "https://remote.example.com/backend-tests",
+            },
+          ],
         };
       }
       const score = nextContinuationScore ?? 6;
@@ -266,6 +284,8 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
           score >= 8 ? "Technical — Node.js" : "Behavioural",
         isComplete: true,
         summary: "Strong backend fundamentals.",
+        nextQuestionGenerationLabel: null,
+        nextQuestionSources: [],
       };
     },
   },
@@ -343,6 +363,13 @@ test("persists practice progress, completion, and pending answers", async () => 
         aiFeedback: null,
         score: null,
         category: null,
+        generationLabel: "AI-generated from web research",
+        sources: [
+          {
+            site: "Pakistan Engineering Careers",
+            url: "https://careers.example.com/interviews",
+          },
+        ],
       },
     ]);
 
@@ -378,7 +405,23 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(firstSession.totalScore, 8, JSON.stringify(firstSession));
     assert.equal(firstSession.questions[0]?.score, 8);
     assert.equal(firstSession.questions[0]?.category, "Communication");
+    assert.equal(
+      firstSession.questions[0]?.generationLabel,
+      "AI-generated from web research",
+    );
+    assert.equal(
+      firstSession.questions[0]?.sources?.[0]?.url,
+      "https://careers.example.com/interviews",
+    );
     assert.equal(firstSession.questions[1]?.userAnswer, null);
+    assert.equal(
+      firstSession.questions[1]?.generationLabel,
+      "AI-generated from web research",
+    );
+    assert.equal(
+      firstSession.questions[1]?.sources?.[0]?.url,
+      "https://remote.example.com/backend-tests",
+    );
 
     const midSessionReload = await (
       await apiRequest(baseUrl, "/practice/session")
@@ -410,6 +453,10 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(firstSession.avgScore, 7);
     assert.equal(firstSession.questions.length, 2);
     assert.equal(firstSession.questions[1]?.category, "Behavioural");
+    assert.equal(
+      firstSession.questions[1]?.sources?.[0]?.site,
+      "Remote Interview Guide",
+    );
 
     const completedReload = await (
       await apiRequest(baseUrl, "/practice/session")
@@ -695,6 +742,14 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(
       historyDetail.questions[0].category,
       "Technical — Node.js",
+    );
+    assert.equal(
+      historyDetail.questions[0].generationLabel,
+      "AI-generated from web research",
+    );
+    assert.equal(
+      historyDetail.questions[0].sources[0].url,
+      "https://careers.example.com/interviews",
     );
     assert.equal(
       historyDetail.questions[0].aiFeedback,

@@ -10,6 +10,8 @@ import {
   useListPracticeHistory,
   useAbandonPracticeSession,
   type PracticeMessageInput,
+  type PracticeQuestionGenerationLabel,
+  type PracticeQuestionSource,
   type PracticeSession,
   type PracticeStartInput,
 } from "@workspace/api-client-react";
@@ -26,7 +28,60 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Mode = "cv" | "job" | "custom";
-type ChatMessage = { role: "ai" | "user"; content: string; feedback?: string; score?: number };
+type ChatMessage = {
+  role: "ai" | "user";
+  content: string;
+  feedback?: string;
+  score?: number;
+  generationLabel?: PracticeQuestionGenerationLabel;
+  sources?: PracticeQuestionSource[];
+};
+
+function safeQuestionSources(sources: PracticeQuestionSource[]) {
+  return sources.filter((source) => {
+    try {
+      const url = new URL(source.url);
+      return (
+        url.protocol === "https:" &&
+        !url.username &&
+        !url.password &&
+        Boolean(source.site.trim())
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
+function QuestionResearch({
+  generationLabel,
+  sources,
+}: {
+  generationLabel: PracticeQuestionGenerationLabel;
+  sources: PracticeQuestionSource[];
+}) {
+  const safeSources = safeQuestionSources(sources);
+  return (
+    <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5">
+      <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+        {generationLabel}
+      </p>
+      {safeSources.map((source) => (
+        <p key={source.url} className="text-[11px] text-muted-foreground">
+          Source:{" "}
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-2 hover:text-primary/80"
+          >
+            {source.site} — {source.url}
+          </a>
+        </p>
+      ))}
+    </div>
+  );
+}
 
 const MODES = [
   {
@@ -83,6 +138,11 @@ export default function Practice() {
   const [sessionContext, setSessionContext] = useState<{ mode: Mode; jobTitle?: string; jobDescription?: string; topic?: string } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState("");
+  const [currentQuestionGenerationLabel, setCurrentQuestionGenerationLabel] =
+    useState<PracticeQuestionGenerationLabel>("AI-generated");
+  const [currentQuestionSources, setCurrentQuestionSources] = useState<
+    PracticeQuestionSource[]
+  >([]);
   const [questionNumber, setQuestionNumber] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [isComplete, setIsComplete] = useState(false);
@@ -134,13 +194,28 @@ export default function Practice() {
       jobDescription: session.jobDescription ?? undefined,
       topic: session.topic ?? undefined,
     });
-    setMessages(session.messages.map((message) => ({
-      role: message.role,
-      content: message.content,
-      feedback: message.feedback ?? undefined,
-      score: message.score ?? undefined,
-    })));
+    let restoredQuestionIndex = 0;
+    setMessages(session.messages.map((message, messageIndex) => {
+      const question =
+        message.role === "ai" && messageIndex > 0
+          ? session.questions[restoredQuestionIndex++]
+          : undefined;
+      return {
+        role: message.role,
+        content: message.content,
+        feedback: message.feedback ?? undefined,
+        score: message.score ?? undefined,
+        generationLabel: question?.generationLabel,
+        sources: question?.sources,
+      };
+    }));
     setCurrentQuestion(session.currentQuestion);
+    const currentQuestionRecord =
+      session.questions[session.questionNumber - 1];
+    setCurrentQuestionGenerationLabel(
+      currentQuestionRecord?.generationLabel ?? "AI-generated",
+    );
+    setCurrentQuestionSources(currentQuestionRecord?.sources ?? []);
     setQuestionNumber(session.questionNumber);
     setIsComplete(session.isComplete);
     setSummary(session.summary);
@@ -202,6 +277,8 @@ export default function Practice() {
       setSessionContext({ mode: selectedMode, jobTitle, jobDescription, topic });
       setMessages([{ role: "ai", content: data.intro }]);
       setCurrentQuestion(data.firstQuestion);
+      setCurrentQuestionGenerationLabel(data.generationLabel);
+      setCurrentQuestionSources(data.sources);
       setQuestionNumber(1);
       setSessionActive(true);
       void queryClient.invalidateQueries({
@@ -269,6 +346,8 @@ export default function Practice() {
       });
       setMessages([{ role: "ai", content: data.intro }]);
       setCurrentQuestion(data.firstQuestion);
+      setCurrentQuestionGenerationLabel(data.generationLabel);
+      setCurrentQuestionSources(data.sources);
       setQuestionNumber(1);
       setUserAnswer("");
       setIsComplete(false);
@@ -301,7 +380,12 @@ export default function Practice() {
     // Add user answer to messages
     const updatedMessages: ChatMessage[] = [
       ...messages,
-      { role: "ai", content: currentQuestion },
+      {
+        role: "ai",
+        content: currentQuestion,
+        generationLabel: currentQuestionGenerationLabel,
+        sources: currentQuestionSources,
+      },
       { role: "user", content: answer },
     ];
     setMessages(updatedMessages);
@@ -337,19 +421,38 @@ export default function Practice() {
       } else {
         setMessages(withFeedback);
         setCurrentQuestion(data.nextQuestion || "");
+        setCurrentQuestionGenerationLabel(
+          data.nextQuestionGenerationLabel ?? "AI-generated",
+        );
+        setCurrentQuestionSources(data.nextQuestionSources);
         setQuestionNumber(data.questionNumber);
       }
       },
       onError: async (error) => {
         const restored = (await refetchPersistedSession()).data;
         if (restored) {
-          setMessages(restored.messages.map((message) => ({
-            role: message.role,
-            content: message.content,
-            feedback: message.feedback ?? undefined,
-            score: message.score ?? undefined,
-          })));
+          let restoredQuestionIndex = 0;
+          setMessages(restored.messages.map((message, messageIndex) => {
+            const question =
+              message.role === "ai" && messageIndex > 0
+                ? restored.questions[restoredQuestionIndex++]
+                : undefined;
+            return {
+              role: message.role,
+              content: message.content,
+              feedback: message.feedback ?? undefined,
+              score: message.score ?? undefined,
+              generationLabel: question?.generationLabel,
+              sources: question?.sources,
+            };
+          }));
           setCurrentQuestion(restored.currentQuestion);
+          const currentQuestionRecord =
+            restored.questions[restored.questionNumber - 1];
+          setCurrentQuestionGenerationLabel(
+            currentQuestionRecord?.generationLabel ?? "AI-generated",
+          );
+          setCurrentQuestionSources(currentQuestionRecord?.sources ?? []);
           setQuestionNumber(restored.questionNumber);
           setIsComplete(restored.isComplete);
           setSummary(restored.summary);
@@ -375,6 +478,8 @@ export default function Practice() {
     setSessionActive(false);
     setMessages([]);
     setCurrentQuestion("");
+    setCurrentQuestionGenerationLabel("AI-generated");
+    setCurrentQuestionSources([]);
     setQuestionNumber(0);
     setUserAnswer("");
     setIsComplete(false);
@@ -566,6 +671,10 @@ export default function Practice() {
                             {question.aiFeedback}
                           </p>
                         )}
+                        <QuestionResearch
+                          generationLabel={question.generationLabel}
+                          sources={question.sources}
+                        />
                         {question.score !== null &&
                           question.score !== undefined && (
                             <ScoreBar score={question.score} />
@@ -819,7 +928,15 @@ export default function Practice() {
             {msg.role === "ai" ? (
               <div className="flex gap-3 max-w-[88%]">
                 <div className="w-7 h-7 shrink-0 flex items-center justify-center bg-primary/20 border border-primary/30 font-mono text-[10px] text-primary font-bold mt-0.5">AI</div>
-                <div className="border border-border bg-card/60 px-4 py-3 text-sm leading-relaxed">{msg.content}</div>
+                <div className="border border-border bg-card/60 px-4 py-3 text-sm leading-relaxed">
+                  {msg.content}
+                  {msg.generationLabel && (
+                    <QuestionResearch
+                      generationLabel={msg.generationLabel}
+                      sources={msg.sources ?? []}
+                    />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex gap-3 justify-end">
@@ -846,7 +963,13 @@ export default function Practice() {
         {currentQuestion && !submitting && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 max-w-[88%]">
             <div className="w-7 h-7 shrink-0 flex items-center justify-center bg-primary/20 border border-primary/30 font-mono text-[10px] text-primary font-bold mt-0.5">AI</div>
-            <div className="border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed">{currentQuestion}</div>
+            <div className="border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed">
+              {currentQuestion}
+              <QuestionResearch
+                generationLabel={currentQuestionGenerationLabel}
+                sources={currentQuestionSources}
+              />
+            </div>
           </motion.div>
         )}
 

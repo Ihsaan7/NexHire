@@ -177,11 +177,26 @@ export interface PracticeStartInput {
   topic?: string;
 }
 
+export type PracticeQuestionGenerationLabel = typeof PracticeQuestionGenerationLabel[keyof typeof PracticeQuestionGenerationLabel];
+
+
+export const PracticeQuestionGenerationLabel = {
+  'AI-generated_from_web_research': 'AI-generated from web research',
+  'AI-generated': 'AI-generated',
+} as const;
+
+export interface PracticeQuestionSource {
+  site: string;
+  url: string;
+}
+
 export interface PracticeStartResult {
   sessionId: string;
   intro: string;
   firstQuestion: string;
   questionNumber: number;
+  generationLabel: PracticeQuestionGenerationLabel;
+  sources: PracticeQuestionSource[];
 }
 
 export interface PracticeMessageInput {
@@ -209,6 +224,8 @@ export interface PracticeMessageResult {
   isComplete: boolean;
   summary?: string;
   questionNumber: number;
+  nextQuestionGenerationLabel: PracticeQuestionGenerationLabel | null;
+  nextQuestionSources: PracticeQuestionSource[];
 }
 
 export type PracticeSessionMessageRole = typeof PracticeSessionMessageRole[keyof typeof PracticeSessionMessageRole];
@@ -238,6 +255,8 @@ export interface PracticeSessionQuestion {
   score?: number | null;
   /** @nullable */
   category: string | null;
+  generationLabel: PracticeQuestionGenerationLabel;
+  sources: PracticeQuestionSource[];
 }
 
 export interface PracticeSkillBreakdown {

@@ -5,6 +5,8 @@
  * Pakistani Job Aggregator API
  * OpenAPI spec version: 0.1.0
  */
+import type { PracticeQuestionGenerationLabel } from './practiceQuestionGenerationLabel';
+import type { PracticeQuestionSource } from './practiceQuestionSource';
 
 export interface PracticeSessionQuestion {
   question: string;
@@ -16,4 +18,6 @@ export interface PracticeSessionQuestion {
   score?: number | null;
   /** @nullable */
   category: string | null;
+  generationLabel: PracticeQuestionGenerationLabel;
+  sources: PracticeQuestionSource[];
 }
