@@ -312,6 +312,59 @@ export const AbandonPracticeSessionResponse = zod.object({
 
 
 /**
+ * @summary List the current user's completed practice sessions
+ */
+export const ListPracticeHistoryResponseItem = zod.object({
+  "sessionId": zod.string(),
+  "mode": zod.enum(['cv', 'job', 'custom']),
+  "topic": zod.string(),
+  "totalScore": zod.number(),
+  "questionCount": zod.number(),
+  "completedAt": zod.coerce.date(),
+  "previousScore": zod.number().nullable(),
+  "scoreImprovement": zod.number().nullable()
+})
+export const ListPracticeHistoryResponse = zod.array(ListPracticeHistoryResponseItem)
+
+
+/**
+ * @summary Get one completed practice session for full review
+ */
+export const GetPracticeHistorySessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const GetPracticeHistorySessionResponse = zod.object({
+  "sessionId": zod.string(),
+  "mode": zod.enum(['cv', 'job', 'custom']),
+  "jobTitle": zod.string().nullish(),
+  "jobDescription": zod.string().nullish(),
+  "topic": zod.string().nullish(),
+  "messages": zod.array(zod.object({
+  "role": zod.enum(['ai', 'user']),
+  "content": zod.string(),
+  "feedback": zod.string().nullish(),
+  "score": zod.number().nullish()
+})),
+  "questions": zod.array(zod.object({
+  "question": zod.string(),
+  "userAnswer": zod.string().nullish(),
+  "aiFeedback": zod.string().nullish(),
+  "score": zod.number().nullish()
+})),
+  "currentQuestion": zod.string(),
+  "questionNumber": zod.number(),
+  "isComplete": zod.boolean(),
+  "summary": zod.string(),
+  "avgScore": zod.number(),
+  "totalScore": zod.number(),
+  "status": zod.enum(['incomplete', 'complete']),
+  "startedAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
  * @summary Submit an answer and receive AI feedback or the next question
  */
 

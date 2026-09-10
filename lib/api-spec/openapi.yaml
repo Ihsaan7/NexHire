@@ -292,6 +292,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /practice/history:
+    get:
+      operationId: listPracticeHistory
+      tags: [practice]
+      summary: List the current user's completed practice sessions
+      responses:
+        "200":
+          description: Completed practice session summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeHistoryResponse"
+
+  /practice/history/{sessionId}:
+    get:
+      operationId: getPracticeHistorySession
+      tags: [practice]
+      summary: Get one completed practice session for full review
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Completed practice session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeSession"
+        "404":
+          description: Completed practice session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /practice/message:
     post:
       operationId: sendPracticeMessage
@@ -1144,6 +1182,41 @@ components:
         - status
         - startedAt
         - updatedAt
+
+    PracticeHistoryItem:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        mode:
+          $ref: "#/components/schemas/PracticeMode"
+        topic:
+          type: string
+        totalScore:
+          type: number
+        questionCount:
+          type: integer
+        completedAt:
+          type: string
+          format: date-time
+        previousScore:
+          type: ["number", "null"]
+        scoreImprovement:
+          type: ["number", "null"]
+      required:
+        - sessionId
+        - mode
+        - topic
+        - totalScore
+        - questionCount
+        - completedAt
+        - previousScore
+        - scoreImprovement
+
+    PracticeHistoryResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/PracticeHistoryItem"
 
     Job:
       type: object

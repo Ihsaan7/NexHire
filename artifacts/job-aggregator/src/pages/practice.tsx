@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import {
   getGetLatestPracticeSessionQueryKey,
+  getGetPracticeHistorySessionQueryKey,
+  getListPracticeHistoryQueryKey,
+  useGetPracticeHistorySession,
   useStartPracticeSession,
   useSendPracticeMessage,
   useGetLatestPracticeSession,
+  useListPracticeHistory,
   useAbandonPracticeSession,
   type PracticeMessageInput,
   type PracticeSession,
@@ -17,6 +21,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import {
   FileText, Briefcase, MessageSquare, RefreshCw, Send,
   Star, ChevronRight, RotateCcw, CheckCircle2, Trophy,
+  History, ArrowLeft,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -85,10 +90,29 @@ export default function Practice() {
   const [avgScore, setAvgScore] = useState(0);
   const [unfinishedSession, setUnfinishedSession] =
     useState<PracticeSession | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedHistorySessionId, setSelectedHistorySessionId] =
+    useState<string | null>(null);
 
   const startPractice = useStartPracticeSession();
   const sendPractice = useSendPracticeMessage();
   const abandonPractice = useAbandonPracticeSession();
+  const {
+    data: practiceHistory,
+    isLoading: historyLoading,
+    refetch: refetchPracticeHistory,
+  } = useListPracticeHistory();
+  const {
+    data: historySession,
+    isLoading: historySessionLoading,
+  } = useGetPracticeHistorySession(selectedHistorySessionId ?? "", {
+    query: {
+      enabled: Boolean(selectedHistorySessionId),
+      queryKey: getGetPracticeHistorySessionQueryKey(
+        selectedHistorySessionId ?? "",
+      ),
+    },
+  });
   const {
     data: persistedSession,
     refetch: refetchPersistedSession,
@@ -307,6 +331,9 @@ export default function Practice() {
         setSummary(data.summary || "");
         const scores = withFeedback.filter((m) => m.role === "user" && m.score !== undefined).map((m) => m.score!);
         setAvgScore(scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : 0);
+        void queryClient.invalidateQueries({
+          queryKey: getListPracticeHistoryQueryKey(),
+        });
       } else {
         setMessages(withFeedback);
         setCurrentQuestion(data.nextQuestion || "");
@@ -356,15 +383,201 @@ export default function Practice() {
     setSessionContext(null);
   };
 
+  const openHistory = () => {
+    setShowHistory(true);
+    void refetchPracticeHistory();
+  };
+
+  if (showHistory) {
+    return (
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">
+              Interview Practice
+            </p>
+            <h1 className="text-4xl md:text-5xl font-serif tracking-tight">
+              Practice History
+            </h1>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowHistory(false);
+              setSelectedHistorySessionId(null);
+            }}
+            className="rounded-none font-mono uppercase text-xs tracking-wider gap-2 self-start sm:self-auto"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to practice
+          </Button>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+          <section className="border border-border bg-card/40">
+            <div className="border-b border-border p-4">
+              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                Completed sessions
+              </p>
+            </div>
+            {historyLoading ? (
+              <div className="p-6 flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="w-4 h-4 animate-spin" /> Loading history…
+              </div>
+            ) : practiceHistory?.length ? (
+              <div>
+                {practiceHistory.map((session) => (
+                  <button
+                    key={session.sessionId}
+                    onClick={() =>
+                      setSelectedHistorySessionId(session.sessionId)
+                    }
+                    className={`w-full text-left p-4 border-b border-border last:border-b-0 transition-colors ${
+                      selectedHistorySessionId === session.sessionId
+                        ? "bg-primary/10"
+                        : "hover:bg-secondary/60"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-serif text-lg truncate">
+                          {session.topic}
+                        </p>
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
+                          {session.mode} · {session.questionCount} questions
+                        </p>
+                      </div>
+                      <span className="font-mono text-lg font-bold">
+                        {session.totalScore}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(session.completedAt))}
+                    </p>
+                    {session.scoreImprovement !== null && (
+                      <p className="text-xs text-green-400 mt-2">
+                        Improved by {session.scoreImprovement} points from your
+                        previous {session.topic} session.
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="p-6 text-sm text-muted-foreground">
+                Complete a practice session to see it here.
+              </p>
+            )}
+          </section>
+
+          <section className="border border-border bg-card/40 min-h-[360px]">
+            {!selectedHistorySessionId ? (
+              <div className="p-8 h-full flex items-center justify-center text-center">
+                <div>
+                  <History className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+                  <p className="font-serif text-xl mb-1">
+                    Select a completed session
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Review every question, answer, feedback note, and score.
+                  </p>
+                </div>
+              </div>
+            ) : historySessionLoading ? (
+              <div className="p-8 flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="w-4 h-4 animate-spin" /> Loading session…
+              </div>
+            ) : historySession ? (
+              <div>
+                <div className="border-b border-border p-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-serif text-2xl">
+                      {historySession.mode === "job"
+                        ? historySession.jobTitle || "Specific job"
+                        : historySession.mode === "custom"
+                          ? historySession.topic || "Custom practice"
+                          : "My CV"}
+                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(historySession.updatedAt))}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-3xl font-bold">
+                      {historySession.totalScore}
+                    </p>
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                      Average /10
+                    </p>
+                  </div>
+                </div>
+                <div className="p-5 space-y-5">
+                  {historySession.questions
+                    .filter((question) => question.userAnswer)
+                    .map((question, index) => (
+                      <article
+                        key={`${index}-${question.question}`}
+                        className="border-b border-border/60 pb-5 last:border-0 last:pb-0"
+                      >
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+                          Question {index + 1}
+                        </p>
+                        <p className="font-serif text-lg mb-3">
+                          {question.question}
+                        </p>
+                        <div className="bg-background/60 border border-border p-4 mb-3">
+                          <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground mb-1">
+                            Your answer
+                          </p>
+                          <p className="text-sm">{question.userAnswer}</p>
+                        </div>
+                        {question.aiFeedback && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {question.aiFeedback}
+                          </p>
+                        )}
+                        {question.score !== null &&
+                          question.score !== undefined && (
+                            <ScoreBar score={question.score} />
+                          )}
+                      </article>
+                    ))}
+                </div>
+              </div>
+            ) : (
+              <p className="p-8 text-sm text-muted-foreground">
+                This session could not be loaded.
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   // ── Mode selection screen ──────────────────────────────────────────────────
   if (!sessionActive) {
     return (
       <div className="p-6 md:p-10 max-w-4xl mx-auto">
-        <header className="mb-10">
-          <h1 className="text-4xl md:text-5xl font-serif tracking-tight mb-2">Interview Practice</h1>
-          <p className="text-muted-foreground font-mono uppercase text-xs tracking-widest">
-            Mock interviews · Skill tests · AI-powered feedback
-          </p>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-10">
+          <div>
+            <h1 className="text-4xl md:text-5xl font-serif tracking-tight mb-2">Interview Practice</h1>
+            <p className="text-muted-foreground font-mono uppercase text-xs tracking-widest">
+              Mock interviews · Skill tests · AI-powered feedback
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={openHistory}
+            className="rounded-none font-mono uppercase text-xs tracking-wider gap-2 self-start sm:self-auto"
+          >
+            <History className="w-3.5 h-3.5" /> History
+          </Button>
         </header>
 
         {unfinishedSession && (
@@ -528,9 +741,14 @@ export default function Practice() {
             ))}
           </div>
 
-          <Button onClick={resetSession} variant="outline" className="w-full rounded-none font-mono uppercase text-xs tracking-wider gap-2">
-            <RotateCcw className="w-3.5 h-3.5" /> Start Another Session
-          </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Button onClick={resetSession} variant="outline" className="rounded-none font-mono uppercase text-xs tracking-wider gap-2">
+              <RotateCcw className="w-3.5 h-3.5" /> Start Another Session
+            </Button>
+            <Button onClick={openHistory} variant="outline" className="rounded-none font-mono uppercase text-xs tracking-wider gap-2">
+              <History className="w-3.5 h-3.5" /> View History
+            </Button>
+          </div>
         </motion.div>
       </div>
     );

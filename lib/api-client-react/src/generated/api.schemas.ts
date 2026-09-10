@@ -266,6 +266,21 @@ export interface PracticeSession {
   updatedAt: string;
 }
 
+export interface PracticeHistoryItem {
+  sessionId: string;
+  mode: PracticeMode;
+  topic: string;
+  totalScore: number;
+  questionCount: number;
+  completedAt: string;
+  /** @nullable */
+  previousScore: number | null;
+  /** @nullable */
+  scoreImprovement: number | null;
+}
+
+export type PracticeHistoryResponse = PracticeHistoryItem[];
+
 export interface Job {
   id: string;
   source: string;

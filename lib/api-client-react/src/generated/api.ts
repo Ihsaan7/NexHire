@@ -43,6 +43,7 @@ import type {
   MatchAnalysis,
   MatchedJobsResponse,
   MessageResponse,
+  PracticeHistoryResponse,
   PracticeMessageInput,
   PracticeMessageResult,
   PracticeSession,
@@ -1172,6 +1173,160 @@ export const useAbandonPracticeSession = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getAbandonPracticeSessionMutationOptions(options));
     }
+
+export const getListPracticeHistoryUrl = () => {
+
+
+
+
+  return `/api/practice/history`
+}
+
+/**
+ * @summary List the current user's completed practice sessions
+ */
+export const listPracticeHistory = async ( options?: RequestInit): Promise<PracticeHistoryResponse> => {
+
+  return customFetch<PracticeHistoryResponse>(getListPracticeHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPracticeHistoryQueryKey = () => {
+    return [
+    `/api/practice/history`
+    ] as const;
+    }
+
+
+export const getListPracticeHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listPracticeHistory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPracticeHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPracticeHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPracticeHistory>>> = ({ signal }) => listPracticeHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPracticeHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPracticeHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listPracticeHistory>>>
+export type ListPracticeHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the current user's completed practice sessions
+ */
+
+export function useListPracticeHistory<TData = Awaited<ReturnType<typeof listPracticeHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPracticeHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPracticeHistoryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetPracticeHistorySessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/practice/history/${sessionId}`
+}
+
+/**
+ * @summary Get one completed practice session for full review
+ */
+export const getPracticeHistorySession = async (sessionId: string, options?: RequestInit): Promise<PracticeSession> => {
+
+  return customFetch<PracticeSession>(getGetPracticeHistorySessionUrl(sessionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPracticeHistorySessionQueryKey = (sessionId: string,) => {
+    return [
+    `/api/practice/history/${sessionId}`
+    ] as const;
+    }
+
+
+export const getGetPracticeHistorySessionQueryOptions = <TData = Awaited<ReturnType<typeof getPracticeHistorySession>>, TError = ErrorType<ErrorResponse>>(sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPracticeHistorySession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPracticeHistorySessionQueryKey(sessionId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPracticeHistorySession>>> = ({ signal }) => getPracticeHistorySession(sessionId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(sessionId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPracticeHistorySession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPracticeHistorySessionQueryResult = NonNullable<Awaited<ReturnType<typeof getPracticeHistorySession>>>
+export type GetPracticeHistorySessionQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get one completed practice session for full review
+ */
+
+export function useGetPracticeHistorySession<TData = Awaited<ReturnType<typeof getPracticeHistorySession>>, TError = ErrorType<ErrorResponse>>(
+ sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPracticeHistorySession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPracticeHistorySessionQueryOptions(sessionId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getSendPracticeMessageUrl = () => {
 

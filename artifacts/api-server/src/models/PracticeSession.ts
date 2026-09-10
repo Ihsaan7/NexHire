@@ -94,6 +94,12 @@ const PracticeSessionSchema = new Schema<IPracticeSession>(
 );
 
 PracticeSessionSchema.index({ userId: 1, updatedAt: -1 });
+PracticeSessionSchema.index({
+  userId: 1,
+  status: 1,
+  updatedAt: -1,
+  _id: -1,
+});
 
 export const PracticeSession =
   mongoose.models.PracticeSession ||

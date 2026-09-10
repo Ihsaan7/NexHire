@@ -46,6 +46,7 @@ let continueCallCount = 0;
 let failNextContinuation = false;
 let signalContinuationStarted: (() => void) | null = null;
 let waitBeforeContinuation: Promise<void> | null = null;
+let nextContinuationScore: number | null = null;
 
 function cloneSession(session: StoredSession): StoredSession {
   const id = session._id.toString();
@@ -83,7 +84,7 @@ function matchesSession(
 const fakePracticeSessionModel = {
   create(input: Omit<StoredSession, "_id" | "createdAt" | "updatedAt">) {
     sequence += 1;
-    const id = `practice-${sequence}`;
+    const id = sequence.toString(16).padStart(24, "0");
     const now = new Date(
       new Date("2026-09-11T00:00:00.000Z").getTime() + sequence * 1000,
     );
@@ -111,6 +112,39 @@ const fakePracticeSessionModel = {
       return match ? cloneSession(match) : null;
     };
     return promise;
+  },
+  find(query: Record<string, any>) {
+    let matches = sessions
+      .filter((session) => matchesSession(session, query))
+      .map(cloneSession);
+    const chain = {
+      sort(sort: Record<string, 1 | -1>) {
+        matches.sort((left, right) => {
+          for (const [field, direction] of Object.entries(sort)) {
+            const leftValue =
+              field === "_id"
+                ? left._id.toString()
+                : (left as any)[field] instanceof Date
+                  ? (left as any)[field].getTime()
+                  : (left as any)[field];
+            const rightValue =
+              field === "_id"
+                ? right._id.toString()
+                : (right as any)[field] instanceof Date
+                  ? (right as any)[field].getTime()
+                  : (right as any)[field];
+            if (leftValue < rightValue) return -1 * direction;
+            if (leftValue > rightValue) return direction;
+          }
+          return 0;
+        });
+        return chain;
+      },
+      limit(limit: number) {
+        return Promise.resolve(matches.slice(0, limit));
+      },
+    };
+    return chain;
   },
   findOneAndUpdate(
     query: Record<string, any>,
@@ -221,9 +255,11 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
           isComplete: false,
         };
       }
+      const score = nextContinuationScore ?? 6;
+      nextContinuationScore = null;
       return {
         feedback: "Good use of idempotency and transactions.",
-        score: 6,
+        score,
         isComplete: true,
         summary: "Strong backend fundamentals.",
       };
@@ -280,6 +316,7 @@ test("persists practice progress, completion, and pending answers", async () => 
   failNextContinuation = false;
   signalContinuationStarted = null;
   waitBeforeContinuation = null;
+  nextContinuationScore = null;
 
   const { server, baseUrl } = await startTestServer();
   try {
@@ -540,6 +577,129 @@ test("persists practice progress, completion, and pending answers", async () => 
       abandonedStarted.sessionId,
     );
     assert.equal(reloadAfterStartFresh.status, "complete");
+
+    const completeSingleQuestionSession = async (
+      topic: string,
+      score: number,
+    ) => {
+      const startResponse = await apiRequest(baseUrl, "/practice/start", {
+        method: "POST",
+        body: JSON.stringify({ mode: "custom", topic }),
+      });
+      assert.equal(startResponse.status, 200);
+      const startedSession = await startResponse.json();
+      nextContinuationScore = score;
+      const answer = `${topic.trim()} answer`;
+      const answerResponse = await apiRequest(
+        baseUrl,
+        "/practice/message",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: startedSession.sessionId,
+            mode: "custom",
+            topic,
+            history: [{ role: "user", content: answer }],
+            answer,
+            questionNumber: 1,
+          }),
+        },
+      );
+      assert.equal(answerResponse.status, 200);
+      return startedSession.sessionId as string;
+    };
+
+    const earlierProgressSessionId = await completeSingleQuestionSession(
+      "System Design",
+      5,
+    );
+    const improvedProgressSessionId = await completeSingleQuestionSession(
+      "  system design  ",
+      8,
+    );
+
+    const otherUserSource = sessions.find(
+      (session) => session._id.toString() === improvedProgressSessionId,
+    );
+    assert.ok(otherUserSource);
+    const otherUserSession = cloneSession(otherUserSource);
+    const otherUserSessionId = "f".repeat(24);
+    otherUserSession._id = { toString: () => otherUserSessionId };
+    otherUserSession.userId = "another-user";
+    otherUserSession.updatedAt = new Date(
+      otherUserSource.updatedAt.getTime() + 1000,
+    );
+    sessions.push(otherUserSession);
+
+    const historyResponse = await apiRequest(
+      baseUrl,
+      "/practice/history",
+    );
+    assert.equal(historyResponse.status, 200);
+    const history = await historyResponse.json();
+    assert.equal(
+      history.some(
+        (session: { sessionId: string }) =>
+          session.sessionId === abandonedStarted.sessionId,
+      ),
+      false,
+    );
+    assert.equal(
+      history.some(
+        (session: { sessionId: string }) =>
+          session.sessionId === otherUserSessionId,
+      ),
+      false,
+    );
+    const improvedHistory = history.find(
+      (session: { sessionId: string }) =>
+        session.sessionId === improvedProgressSessionId,
+    );
+    assert.ok(improvedHistory);
+    assert.equal(improvedHistory.topic, "system design");
+    assert.equal(improvedHistory.totalScore, 8);
+    assert.equal(improvedHistory.questionCount, 1);
+    assert.equal(improvedHistory.previousScore, 5);
+    assert.equal(improvedHistory.scoreImprovement, 3);
+    const earlierHistoryIndex = history.findIndex(
+      (session: { sessionId: string }) =>
+        session.sessionId === earlierProgressSessionId,
+    );
+    const improvedHistoryIndex = history.findIndex(
+      (session: { sessionId: string }) =>
+        session.sessionId === improvedProgressSessionId,
+    );
+    assert.ok(improvedHistoryIndex < earlierHistoryIndex);
+
+    const historyDetailResponse = await apiRequest(
+      baseUrl,
+      `/practice/history/${improvedProgressSessionId}`,
+    );
+    assert.equal(historyDetailResponse.status, 200);
+    const historyDetail = await historyDetailResponse.json();
+    assert.equal(historyDetail.questions.length, 1);
+    assert.equal(historyDetail.questions[0].userAnswer, "system design answer");
+    assert.equal(historyDetail.questions[0].score, 8);
+    assert.equal(
+      historyDetail.questions[0].aiFeedback,
+      "Good use of idempotency and transactions.",
+    );
+
+    const abandonedDetailResponse = await apiRequest(
+      baseUrl,
+      `/practice/history/${abandonedStarted.sessionId}`,
+    );
+    assert.equal(abandonedDetailResponse.status, 404);
+    const otherUserDetailResponse = await apiRequest(
+      baseUrl,
+      `/practice/history/${otherUserSessionId}`,
+    );
+    assert.equal(otherUserDetailResponse.status, 404);
+    const malformedDetailResponse = await apiRequest(
+      baseUrl,
+      "/practice/history/not-an-object-id",
+    );
+    assert.equal(malformedDetailResponse.status, 404);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }

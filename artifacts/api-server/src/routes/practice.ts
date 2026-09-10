@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
+import { isValidObjectId } from "mongoose";
 import { requireAuth } from "./auth";
 import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
@@ -7,6 +8,8 @@ import { PracticeSession } from "../models/PracticeSession";
 import { startPracticeSession, continuePracticeSession } from "../lib/gemini";
 import {
   GetLatestPracticeSessionResponse,
+  GetPracticeHistorySessionResponse,
+  ListPracticeHistoryResponse,
   AbandonPracticeSessionResponse,
   SendPracticeMessageBody,
   SendPracticeMessageResponse,
@@ -111,6 +114,10 @@ router.post(
       await connectMongo();
       const userId = (req as any).userId as string;
       const sessionId = req.params.sessionId;
+      if (!isValidObjectId(sessionId)) {
+        res.status(404).json({ error: "Practice session not found" });
+        return;
+      }
       const result = await PracticeSession.updateOne(
         {
           _id: sessionId,
@@ -151,6 +158,88 @@ router.post(
     }
   },
 );
+
+// GET /api/practice/history
+router.get("/practice/history", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+    const userId = (req as any).userId as string;
+    const recentSessions = await PracticeSession.find({
+      userId,
+      status: { $in: ["complete", "completed"] },
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .limit(100);
+
+    const previousScoreByTopic = new Map<string, number>();
+    const chronologicalItems = [...recentSessions]
+      .reverse()
+      .map((session: any) => {
+        const totalScore = getPracticeTotalScore(session);
+        const topic = getPracticeTopic(session);
+        const topicKey = `${session.mode}:${topic
+          .trim()
+          .toLocaleLowerCase()}`;
+        const previousScore = previousScoreByTopic.get(topicKey);
+        previousScoreByTopic.set(topicKey, totalScore);
+        const scoreImprovement =
+          previousScore !== undefined && totalScore > previousScore
+            ? Math.round((totalScore - previousScore) * 10) / 10
+            : null;
+
+        return {
+          sessionId: session._id.toString(),
+          mode: session.mode,
+          topic,
+          totalScore,
+          questionCount: getPersistedQuestions(session).filter(
+            (question: { userAnswer?: string | null }) =>
+              question.userAnswer,
+          ).length,
+          completedAt: session.updatedAt.toISOString(),
+          previousScore: previousScore ?? null,
+          scoreImprovement,
+        };
+      });
+
+    res.json(
+      ListPracticeHistoryResponse.parse(
+        chronologicalItems.reverse().slice(0, 50),
+      ),
+    );
+  } catch (err) {
+    sendInternalServerError(req, res, err, "practiceHistoryList error");
+  }
+});
+
+// GET /api/practice/history/:sessionId
+router.get("/practice/history/:sessionId", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+    const userId = (req as any).userId as string;
+    if (!isValidObjectId(req.params.sessionId)) {
+      res.status(404).json({ error: "Completed practice session not found" });
+      return;
+    }
+    const session = await PracticeSession.findOne({
+      _id: req.params.sessionId,
+      userId,
+      status: { $in: ["complete", "completed"] },
+    });
+    if (!session) {
+      res.status(404).json({ error: "Completed practice session not found" });
+      return;
+    }
+
+    res.json(
+      GetPracticeHistorySessionResponse.parse(
+        formatPracticeSession(session),
+      ),
+    );
+  } catch (err) {
+    sendInternalServerError(req, res, err, "practiceHistoryDetail error");
+  }
+});
 
 // POST /api/practice/message
 router.post("/practice/message", requireAuth, async (req, res) => {
@@ -375,17 +464,30 @@ function getPersistedQuestions(session: any) {
   return questions;
 }
 
-function formatPracticeSession(session: any) {
-  const questions = getPersistedQuestions(session);
+function getPracticeTotalScore(session: any) {
   const totalScoreIsLegacyDefault =
     typeof session.$isDefault === "function" &&
     session.$isDefault("totalScore");
-  const totalScore =
-    !totalScoreIsLegacyDefault && Number.isFinite(session.totalScore)
+  return !totalScoreIsLegacyDefault && Number.isFinite(session.totalScore)
     ? session.totalScore
     : Number.isFinite(session.avgScore)
       ? session.avgScore
       : 0;
+}
+
+function getPracticeTopic(session: any) {
+  if (session.mode === "job") {
+    return session.jobTitle?.trim() || session.topic?.trim() || "Specific job";
+  }
+  if (session.mode === "custom") {
+    return session.topic?.trim() || "Custom practice";
+  }
+  return "My CV";
+}
+
+function formatPracticeSession(session: any) {
+  const questions = getPersistedQuestions(session);
+  const totalScore = getPracticeTotalScore(session);
   return {
     sessionId: session._id.toString(),
     mode: session.mode,

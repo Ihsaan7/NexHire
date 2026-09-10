@@ -20,3 +20,9 @@ Resume decisions must wait for an authoritative post-mount session fetch rather 
 **Why:** A one-shot hydration guard can accept a stale cached session before the network response, causing an abandoned or older completed session to replace the actual unfinished session on route remount.
 
 **How to apply:** Gate resume/banner hydration on a fetch completed after mount, never overwrite an active practice UI, and invalidate the latest-session cache after every successful session start.
+
+Practice history includes successfully completed sessions, not Start fresh abandonments. Progress compares with the immediately prior completed session sharing both mode and a trimmed, case-normalized topic label.
+
+**Why:** Abandoned sessions can contain partial scores, and comparing custom, job, and CV sessions by label alone can produce misleading progress notes. Cached history can also omit the session that just completed.
+
+**How to apply:** Keep history/detail queries user-scoped, order deterministically, invalidate history on completion and refetch when opened, and show an improvement note only for a positive score difference.
