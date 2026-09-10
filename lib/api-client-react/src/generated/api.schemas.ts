@@ -95,6 +95,16 @@ export interface CvSuggestions {
   generatedAt: string;
 }
 
+export interface CvAuditRecord {
+  id: string;
+  auditResult: CvAuditResult;
+  createdAt: string;
+}
+
+export interface LatestCvAuditResponse {
+  audit: CvAuditRecord | null;
+}
+
 export interface CvRefineInput {
   jobTitle?: string;
   /** @minLength 1 */

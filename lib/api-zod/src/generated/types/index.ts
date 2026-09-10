@@ -8,6 +8,7 @@
 
 export * from './cvAuditIssue';
 export * from './cvAuditIssueSeverity';
+export * from './cvAuditRecord';
 export * from './cvAuditResult';
 export * from './cvFileInput';
 export * from './cvRefineInput';
@@ -22,6 +23,7 @@ export * from './healthStatus';
 export * from './job';
 export * from './jobListResponse';
 export * from './jobStats';
+export * from './latestCvAuditResponse';
 export * from './listGigsParams';
 export * from './listGigsShowLowTrust';
 export * from './listGigsSort';

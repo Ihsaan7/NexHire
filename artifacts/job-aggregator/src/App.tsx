@@ -3,6 +3,7 @@ import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,6 @@ function stripBase(path: string): string {
 if (!clerkPubKey) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in .env file");
 }
-
-const queryClient = new QueryClient();
 
 const clerkAppearance = {
   theme: shadcn,
@@ -97,6 +96,22 @@ function AuthTokenSetter() {
   const { getToken } = useAuth();
   setAuthTokenGetter(() => getToken());
   return null;
+}
+
+function IdentityQueryClient({ children }: { children: ReactNode }) {
+  const [client] = useState(() => new QueryClient());
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+function UserScopedQueryClient({ children }: { children: ReactNode }) {
+  const { isLoaded, userId } = useAuth();
+  const identityKey = isLoaded ? userId ?? "signed-out" : "auth-loading";
+
+  return (
+    <IdentityQueryClient key={identityKey}>
+      {children}
+    </IdentityQueryClient>
+  );
 }
 
 function AnimatedBg() {
@@ -247,7 +262,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <AuthTokenSetter />
-      <QueryClientProvider client={queryClient}>
+      <UserScopedQueryClient>
         <TooltipProvider>
           <Switch location={location} key={location}>
             <Route path="/" component={HomeRedirect} />
@@ -274,7 +289,7 @@ function ClerkProviderWithRoutes() {
             <Route><NotFound /></Route>
           </Switch>
         </TooltipProvider>
-      </QueryClientProvider>
+      </UserScopedQueryClient>
     </ClerkProvider>
   );
 }

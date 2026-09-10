@@ -142,6 +142,27 @@ export const GetCvSuggestionsResponse = zod.object({
 
 
 /**
+ * @summary Get the latest saved audit for the current CV
+ */
+export const GetLatestCvAuditResponse = zod.object({
+  "audit": zod.union([zod.object({
+  "id": zod.string(),
+  "auditResult": zod.object({
+  "score": zod.number(),
+  "issues": zod.array(zod.object({
+  "category": zod.string(),
+  "severity": zod.enum(['high', 'medium', 'low']),
+  "problem": zod.string(),
+  "correction": zod.string()
+})),
+  "strengths": zod.array(zod.string())
+}),
+  "createdAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
  * @summary Audit the current user's CV against Pakistani CV standards
  */
 export const AuditCvResponse = zod.object({

@@ -1,5 +1,7 @@
 import {
   useGetProfile,
+  useGetLatestCvAudit,
+  getGetLatestCvAuditQueryKey,
   useUploadCv,
   useGetCvSuggestions,
   getGetCvSuggestionsQueryKey,
@@ -9,6 +11,7 @@ import {
   type CvRefineResult,
 } from "@workspace/api-client-react";
 import { useState, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -20,7 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { motion, AnimatePresence } from "framer-motion";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type AuditIssue = {
@@ -61,6 +64,13 @@ function ScoreRing({ score }: { score: number }) {
       </div>
     </div>
   );
+}
+
+function formatAuditAge(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? formatDistanceToNow(date, { addSuffix: true })
+    : "recently";
 }
 
 // ── Collapsible issue card ──────────────────────────────────────────────────────
@@ -111,8 +121,23 @@ function IssueCard({ issue, index }: { issue: AuditIssue; index: number }) {
 // ── Main component ──────────────────────────────────────────────────────────────
 export default function CV() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: profile, isLoading: loadingProfile, refetch: refetchProfile } = useGetProfile();
+  const {
+    data: latestAudit,
+    isLoading: loadingLatestAudit,
+    refetch: refetchLatestAudit,
+  } = useGetLatestCvAudit({
+    query: {
+      enabled: !!profile?.cvText,
+      queryKey: [
+        ...getGetLatestCvAuditQueryKey(),
+        profile?.userId ?? null,
+        profile?.cvUpdatedAt ?? null,
+      ],
+    },
+  });
   const { data: suggestions, isLoading: loadingSuggestions } = useGetCvSuggestions({
     query: { enabled: !!profile?.cvText, queryKey: getGetCvSuggestionsQueryKey() },
   });
@@ -123,6 +148,7 @@ export default function CV() {
 
   // ── Audit state ──
   const [audit, setAudit] = useState<CvAuditResult | null>(null);
+  const [auditGeneratedAt, setAuditGeneratedAt] = useState<string | null>(null);
 
   // ── Refine state ──
   const [jobTitle, setJobTitle] = useState("");
@@ -130,21 +156,32 @@ export default function CV() {
   const [refined, setRefined] = useState<CvRefineResult | null>(null);
 
   useEffect(() => {
-    setAudit(profile?.cvAudit ?? null);
+    if (latestAudit?.audit) {
+      setAudit(latestAudit.audit.auditResult);
+      setAuditGeneratedAt(latestAudit.audit.createdAt);
+    } else if (!loadingLatestAudit) {
+      setAudit(profile?.cvAudit ?? null);
+      setAuditGeneratedAt(profile?.cvAudit?.generatedAt ?? null);
+    }
+  }, [latestAudit, loadingLatestAudit, profile?.cvAudit]);
+
+  useEffect(() => {
     setRefined(profile?.cvRefinement ?? null);
     if (profile?.cvRefinement) {
       setJobTitle(profile.cvRefinement.jobTitle ?? "");
       setJobDescription(profile.cvRefinement.jobDescription);
     }
-  }, [profile?.cvAudit, profile?.cvRefinement]);
+  }, [profile?.cvRefinement]);
 
   const auditCv = useAuditCv({
     mutation: {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         setAudit(data);
-        // Refresh the profile so the saved audit is the source of truth when
-        // the user leaves and returns to CV Studio.
-        refetchProfile();
+        const savedAudit = await refetchLatestAudit();
+        setAuditGeneratedAt(
+          savedAudit.data?.audit?.createdAt ?? new Date().toISOString(),
+        );
+        await refetchProfile();
       },
       onError: (error) => {
         toast({ title: "Audit failed", description: getApiErrorMessage(error, "Try again."), variant: "destructive" });
@@ -183,15 +220,19 @@ export default function CV() {
       return;
     }
     uploadCv.mutate({ data: { file } }, {
-      onSuccess: () => {
+      onSuccess: async () => {
         // The API removes audit/refinement results for a replacement CV.
         // Clear the current view immediately while the profile rehydrates.
         setAudit(null);
+        setAuditGeneratedAt(null);
+        queryClient.removeQueries({
+          queryKey: getGetLatestCvAuditQueryKey(),
+        });
         setRefined(null);
         setJobTitle("");
         setJobDescription("");
         toast({ title: "CV uploaded successfully", description: "Your data has been extracted." });
-        refetchProfile();
+        await refetchProfile();
       },
       onError: (error) => toast({
         title: "Upload failed",
@@ -353,7 +394,13 @@ export default function CV() {
                   </p>
                 </div>
                 <Button onClick={runAudit} disabled={auditing} className="rounded-none font-mono uppercase text-xs tracking-wider gap-2 shrink-0">
-                  {auditing ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Analysing…</> : <><Zap className="w-3.5 h-3.5" /> Run Audit</>}
+                  {auditing ? (
+                    <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Analysing…</>
+                  ) : audit ? (
+                    <><RefreshCw className="w-3.5 h-3.5" /> Re-analyse</>
+                  ) : (
+                    <><Zap className="w-3.5 h-3.5" /> Run Audit</>
+                  )}
                 </Button>
               </div>
 
@@ -383,6 +430,11 @@ export default function CV() {
                         </div>
                       )}
                     </div>
+                    {auditGeneratedAt && (
+                      <p className="w-full border-t border-border/50 pt-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                        Last audited: {formatAuditAge(auditGeneratedAt)}
+                      </p>
+                    )}
                   </div>
 
                   {/* Issues grouped by severity */}

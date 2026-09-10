@@ -111,6 +111,17 @@ paths:
                 $ref: "#/components/schemas/CvSuggestions"
 
   /profile/cv/audit:
+    get:
+      operationId: getLatestCvAudit
+      tags: [profile]
+      summary: Get the latest saved audit for the current CV
+      responses:
+        "200":
+          description: Latest saved CV audit, or null when the current CV has not been audited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LatestCvAuditResponse"
     post:
       operationId: auditCv
       tags: [profile]
@@ -726,6 +737,30 @@ components:
         - score
         - issues
         - strengths
+
+    CvAuditRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        auditResult:
+          $ref: "#/components/schemas/CvAuditResult"
+        createdAt:
+          type: string
+      required:
+        - id
+        - auditResult
+        - createdAt
+
+    LatestCvAuditResponse:
+      type: object
+      properties:
+        audit:
+          oneOf:
+            - $ref: "#/components/schemas/CvAuditRecord"
+            - type: "null"
+      required:
+        - audit
 
     CvRefineInput:
       type: object

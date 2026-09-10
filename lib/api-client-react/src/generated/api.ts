@@ -33,6 +33,7 @@ import type {
   Job,
   JobListResponse,
   JobStats,
+  LatestCvAuditResponse,
   ListGigsParams,
   ListJobsParams,
   MatchAnalysis,
@@ -133,6 +134,13 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+
+
+
+
+
+
 export const getGetProfileUrl = () => {
 
 
@@ -419,6 +427,83 @@ export function useGetCvSuggestions<TData = Awaited<ReturnType<typeof getCvSugge
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCvSuggestionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetLatestCvAuditUrl = () => {
+
+
+
+
+  return `/api/profile/cv/audit`
+}
+
+/**
+ * @summary Get the latest saved audit for the current CV
+ */
+export const getLatestCvAudit = async ( options?: RequestInit): Promise<LatestCvAuditResponse> => {
+
+  return customFetch<LatestCvAuditResponse>(getGetLatestCvAuditUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLatestCvAuditQueryKey = () => {
+    return [
+    `/api/profile/cv/audit`
+    ] as const;
+    }
+
+
+export const getGetLatestCvAuditQueryOptions = <TData = Awaited<ReturnType<typeof getLatestCvAudit>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestCvAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLatestCvAuditQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLatestCvAudit>>> = ({ signal }) => getLatestCvAudit({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLatestCvAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLatestCvAuditQueryResult = NonNullable<Awaited<ReturnType<typeof getLatestCvAudit>>>
+export type GetLatestCvAuditQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the latest saved audit for the current CV
+ */
+
+export function useGetLatestCvAudit<TData = Awaited<ReturnType<typeof getLatestCvAudit>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestCvAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLatestCvAuditQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1844,4 +1929,3 @@ export function useGetSyncStatus<TData = Awaited<ReturnType<typeof getSyncStatus
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-

@@ -51,6 +51,13 @@ type StoredProfile = {
 };
 
 const profiles = new Map<string, StoredProfile>();
+const cvAudits: {
+  _id: { toString: () => string };
+  userId: string;
+  cvUpdatedAt: Date;
+  auditResult: Audit;
+  createdAt: Date;
+}[] = [];
 
 function clone<T>(value: T): T {
   if (value === undefined) return value;
@@ -141,6 +148,37 @@ const fakeProfileModel = {
   },
 };
 
+const fakeCvAuditModel = {
+  create(input: {
+    userId: string;
+    cvUpdatedAt: Date;
+    auditResult: Audit;
+    createdAt: Date;
+  }) {
+    const id = `audit-${cvAudits.length + 1}`;
+    const record = {
+      ...clone(input),
+      _id: { toString: () => id },
+    };
+    cvAudits.push(record);
+    return Promise.resolve(clone(record));
+  },
+  findOne(query: { userId: string; cvUpdatedAt: Date }) {
+    return {
+      sort: () => {
+        const record = cvAudits
+          .filter(
+            (audit) =>
+              audit.userId === query.userId &&
+              audit.cvUpdatedAt.getTime() === query.cvUpdatedAt.getTime(),
+          )
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+        return Promise.resolve(record ? clone(record) : null);
+      },
+    };
+  },
+};
+
 const auditResult: Audit = {
   score: 82,
   issues: [
@@ -185,6 +223,9 @@ mock.module(moduleUrl("../src/lib/mongodb.ts"), {
 });
 mock.module(moduleUrl("../src/models/Profile.ts"), {
   namedExports: { Profile: fakeProfileModel },
+});
+mock.module(moduleUrl("../src/models/CvAudit.ts"), {
+  namedExports: { CvAudit: fakeCvAuditModel },
 });
 mock.module(moduleUrl("../src/lib/gemini.ts"), {
   namedExports: {
@@ -238,6 +279,7 @@ async function apiRequest(
 
 test("persists CV Studio results across reloads and clears them for a replacement CV", async () => {
   profiles.clear();
+  cvAudits.length = 0;
   const fixture = await readFile(fixturePath);
   const { server, baseUrl } = await startTestServer();
 
@@ -273,6 +315,20 @@ test("persists CV Studio results across reloads and clears them for a replacemen
       issues: auditResult.issues,
       strengths: auditResult.strengths,
     });
+
+    const latestAuditResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/audit",
+    );
+    assert.equal(latestAuditResponse.status, 200);
+    const latestAudit = await latestAuditResponse.json();
+    assert.equal(latestAudit.audit.id, "audit-1");
+    assert.deepEqual(latestAudit.audit.auditResult, {
+      score: auditResult.score,
+      issues: auditResult.issues,
+      strengths: auditResult.strengths,
+    });
+    assert.ok(latestAudit.audit.createdAt);
 
     const profileAfterAudit = await apiRequest(baseUrl, "/profile");
     const auditedProfile = await profileAfterAudit.json();
@@ -320,6 +376,13 @@ test("persists CV Studio results across reloads and clears them for a replacemen
     assert.match(replacementProfile.cvText, /IHSAAN ULLAH/);
     assert.equal(replacementProfile.cvAudit, undefined);
     assert.equal(replacementProfile.cvRefinement, undefined);
+
+    const replacementAuditResponse = await apiRequest(
+      baseUrl,
+      "/profile/cv/audit",
+    );
+    assert.equal(replacementAuditResponse.status, 200);
+    assert.deepEqual(await replacementAuditResponse.json(), { audit: null });
   } finally {
     await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
   }

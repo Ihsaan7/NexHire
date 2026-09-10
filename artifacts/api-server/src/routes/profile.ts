@@ -3,10 +3,12 @@ import multer from "multer";
 import { requireAuth } from "./auth";
 import { connectMongo } from "../lib/mongodb";
 import { Profile } from "../models/Profile";
+import { CvAudit } from "../models/CvAudit";
 import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini";
 import { logger } from "../lib/logger";
 import {
   AuditCvResponse,
+  GetLatestCvAuditResponse,
   GetCvSuggestionsResponse,
   GetProfileResponse,
   RefineCvBody,
@@ -35,6 +37,14 @@ const upload = multer({
 });
 
 const router = Router();
+
+function formatCvAuditRecord(audit: any) {
+  return {
+    id: audit._id.toString(),
+    auditResult: audit.auditResult,
+    createdAt: audit.createdAt.toISOString(),
+  };
+}
 
 function formatPersistedDate(value: unknown, fallback: Date): string {
   if (value instanceof Date && Number.isFinite(value.getTime())) {
@@ -199,6 +209,32 @@ router.post(
 );
 
 // POST /api/profile/cv/audit
+router.get("/profile/cv/audit", requireAuth, async (req, res) => {
+  try {
+    await connectMongo();
+    const userId = (req as any).userId as string;
+    const profile = await Profile.findOne({ userId });
+
+    if (!profile?.cvUpdatedAt) {
+      res.json(GetLatestCvAuditResponse.parse({ audit: null }));
+      return;
+    }
+
+    const audit = await CvAudit.findOne({
+      userId,
+      cvUpdatedAt: profile.cvUpdatedAt,
+    }).sort({ createdAt: -1 });
+
+    res.json(
+      GetLatestCvAuditResponse.parse({
+        audit: audit ? formatCvAuditRecord(audit) : null,
+      }),
+    );
+  } catch (err) {
+    sendInternalServerError(req, res, err, "getLatestCvAudit error");
+  }
+});
+
 router.post("/profile/cv/audit", requireAuth, async (req, res) => {
   try {
     await connectMongo();
@@ -210,10 +246,41 @@ router.post("/profile/cv/audit", requireAuth, async (req, res) => {
     }
     const audit = await auditCvPakistan(profile.cvText);
     const generatedAt = new Date();
-    await Profile.updateOne(
-      { userId },
-      { $set: { cvAudit: { ...audit, generatedAt } } },
+    const auditedCvUpdatedAt =
+      profile.cvUpdatedAt ?? profile.updatedAt ?? generatedAt;
+    await CvAudit.create({
+      userId,
+      cvUpdatedAt: auditedCvUpdatedAt,
+      auditResult: audit,
+      createdAt: generatedAt,
+    });
+    const currentProfile = await Profile.findOneAndUpdate(
+      {
+        userId,
+        cvText: profile.cvText,
+        ...(profile.cvUpdatedAt
+          ? { cvUpdatedAt: profile.cvUpdatedAt }
+          : {
+              $or: [
+                { cvUpdatedAt: { $exists: false } },
+                { cvUpdatedAt: null },
+              ],
+            }),
+      },
+      {
+        $set: {
+          cvUpdatedAt: auditedCvUpdatedAt,
+          cvAudit: { ...audit, generatedAt },
+        },
+      },
+      { new: true },
     );
+    if (!currentProfile) {
+      res.status(409).json({
+        error: "The CV changed while the audit was running. Please re-analyse it.",
+      });
+      return;
+    }
     res.json(AuditCvResponse.parse(audit));
   } catch (err) {
     sendInternalServerError(req, res, err, "cvAudit error");
