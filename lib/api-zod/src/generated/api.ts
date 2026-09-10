@@ -285,7 +285,8 @@ export const GetLatestPracticeSessionResponse = zod.union([zod.object({
   "question": zod.string(),
   "userAnswer": zod.string().nullish(),
   "aiFeedback": zod.string().nullish(),
-  "score": zod.number().nullish()
+  "score": zod.number().nullish(),
+  "category": zod.string().nullable()
 })),
   "currentQuestion": zod.string(),
   "questionNumber": zod.number(),
@@ -294,6 +295,10 @@ export const GetLatestPracticeSessionResponse = zod.union([zod.object({
   "avgScore": zod.number(),
   "totalScore": zod.number(),
   "status": zod.enum(['incomplete', 'complete']),
+  "skillBreakdown": zod.object({
+  "strong": zod.array(zod.string()),
+  "needsWork": zod.array(zod.string())
+}),
   "startedAt": zod.string(),
   "updatedAt": zod.string()
 }),zod.null()])
@@ -322,7 +327,11 @@ export const ListPracticeHistoryResponseItem = zod.object({
   "questionCount": zod.number(),
   "completedAt": zod.coerce.date(),
   "previousScore": zod.number().nullable(),
-  "scoreImprovement": zod.number().nullable()
+  "scoreImprovement": zod.number().nullable(),
+  "skillBreakdown": zod.object({
+  "strong": zod.array(zod.string()),
+  "needsWork": zod.array(zod.string())
+})
 })
 export const ListPracticeHistoryResponse = zod.array(ListPracticeHistoryResponseItem)
 
@@ -350,7 +359,8 @@ export const GetPracticeHistorySessionResponse = zod.object({
   "question": zod.string(),
   "userAnswer": zod.string().nullish(),
   "aiFeedback": zod.string().nullish(),
-  "score": zod.number().nullish()
+  "score": zod.number().nullish(),
+  "category": zod.string().nullable()
 })),
   "currentQuestion": zod.string(),
   "questionNumber": zod.number(),
@@ -359,6 +369,10 @@ export const GetPracticeHistorySessionResponse = zod.object({
   "avgScore": zod.number(),
   "totalScore": zod.number(),
   "status": zod.enum(['incomplete', 'complete']),
+  "skillBreakdown": zod.object({
+  "strong": zod.array(zod.string()),
+  "needsWork": zod.array(zod.string())
+}),
   "startedAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -391,6 +405,7 @@ export const SendPracticeMessageResponse = zod.object({
   "sessionId": zod.string(),
   "feedback": zod.string(),
   "score": zod.number(),
+  "category": zod.string().nullable(),
   "nextQuestion": zod.string().optional(),
   "isComplete": zod.boolean(),
   "summary": zod.string().optional(),

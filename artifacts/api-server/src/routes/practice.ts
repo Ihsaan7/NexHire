@@ -64,6 +64,7 @@ router.post("/practice/start", requireAuth, async (req, res) => {
         userAnswer: null,
         aiFeedback: null,
         score: null,
+        category: null,
       }],
       currentQuestion: result.firstQuestion,
       questionNumber: 1,
@@ -186,19 +187,21 @@ router.get("/practice/history", requireAuth, async (req, res) => {
           previousScore !== undefined && totalScore > previousScore
             ? Math.round((totalScore - previousScore) * 10) / 10
             : null;
+        const questions = getPersistedQuestions(session);
 
         return {
           sessionId: session._id.toString(),
           mode: session.mode,
           topic,
           totalScore,
-          questionCount: getPersistedQuestions(session).filter(
+          questionCount: questions.filter(
             (question: { userAnswer?: string | null }) =>
               question.userAnswer,
           ).length,
           completedAt: session.updatedAt.toISOString(),
           previousScore: previousScore ?? null,
           scoreImprovement,
+          skillBreakdown: getSkillBreakdown(questions),
         };
       });
 
@@ -287,6 +290,7 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       userAnswer: answer,
       aiFeedback: null,
       score: null,
+      category: null,
     };
     const submissionToken = randomUUID();
     const pendingAnswerStartedAt = new Date();
@@ -373,6 +377,7 @@ router.post("/practice/message", requireAuth, async (req, res) => {
       userAnswer: answer,
       aiFeedback: result.feedback,
       score: result.score,
+      category: result.category,
     };
     if (!isComplete && result.nextQuestion) {
       updatedQuestions.push({
@@ -380,6 +385,7 @@ router.post("/practice/message", requireAuth, async (req, res) => {
         userAnswer: null,
         aiFeedback: null,
         score: null,
+        category: null,
       });
     }
     const totalScore = scores.length
@@ -440,6 +446,7 @@ function getPersistedQuestions(session: any) {
       userAnswer: question.userAnswer ?? null,
       aiFeedback: question.aiFeedback ?? null,
       score: question.score ?? null,
+      category: question.category ?? null,
     }));
   }
 
@@ -448,6 +455,7 @@ function getPersistedQuestions(session: any) {
     userAnswer: string;
     aiFeedback: string | null;
     score: number | null;
+    category: string | null;
   }[] = [];
   for (let index = 0; index < session.messages.length; index += 1) {
     const message = session.messages[index];
@@ -458,10 +466,66 @@ function getPersistedQuestions(session: any) {
         userAnswer: message.content,
         aiFeedback: message.feedback ?? null,
         score: message.score ?? null,
+        category: null,
       });
     }
   }
   return questions;
+}
+
+function getSkillBreakdown(
+  questions: {
+    category?: string | null;
+    score?: number | null;
+    userAnswer?: string | null;
+  }[],
+) {
+  const categories = new Map<
+    string,
+    { label: string; scoreTotal: number; count: number }
+  >();
+  for (const question of questions) {
+    const label = question.category?.trim().replace(/\s+/g, " ");
+    if (
+      !label ||
+      !question.userAnswer ||
+      !Number.isFinite(question.score)
+    ) {
+      continue;
+    }
+    const key = label.toLocaleLowerCase();
+    const existing = categories.get(key) ?? {
+      label,
+      scoreTotal: 0,
+      count: 0,
+    };
+    existing.scoreTotal += question.score as number;
+    existing.count += 1;
+    categories.set(key, existing);
+  }
+
+  const scoredCategories = [...categories.values()].map((category) => ({
+    label: category.label,
+    average: category.scoreTotal / category.count,
+  }));
+  return {
+    strong: scoredCategories
+      .filter((category) => category.average >= 8)
+      .sort(
+        (left, right) =>
+          right.average - left.average ||
+          left.label.localeCompare(right.label),
+      )
+      .map((category) => category.label),
+    needsWork: scoredCategories
+      .filter((category) => category.average < 8)
+      .sort(
+        (left, right) =>
+          left.average - right.average ||
+          left.label.localeCompare(right.label),
+      )
+      .map((category) => category.label),
+  };
 }
 
 function getPracticeTotalScore(session: any) {
@@ -507,6 +571,7 @@ function formatPracticeSession(session: any) {
     summary: session.summary,
     avgScore: session.avgScore,
     totalScore,
+    skillBreakdown: getSkillBreakdown(questions),
     status:
       session.status === "complete" ||
       session.status === "completed" ||

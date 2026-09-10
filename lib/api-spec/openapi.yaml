@@ -1083,6 +1083,8 @@ components:
           type: string
         score:
           type: number
+        category:
+          type: ["string", "null"]
         nextQuestion:
           type: string
         isComplete:
@@ -1095,6 +1097,7 @@ components:
         - sessionId
         - feedback
         - score
+        - category
         - isComplete
         - questionNumber
 
@@ -1125,8 +1128,26 @@ components:
           type: ["string", "null"]
         score:
           type: ["number", "null"]
+        category:
+          type: ["string", "null"]
       required:
         - question
+        - category
+
+    PracticeSkillBreakdown:
+      type: object
+      properties:
+        strong:
+          type: array
+          items:
+            type: string
+        needsWork:
+          type: array
+          items:
+            type: string
+      required:
+        - strong
+        - needsWork
 
     PracticeSession:
       type: object
@@ -1164,6 +1185,8 @@ components:
         status:
           type: string
           enum: [incomplete, complete]
+        skillBreakdown:
+          $ref: "#/components/schemas/PracticeSkillBreakdown"
         startedAt:
           type: string
         updatedAt:
@@ -1180,6 +1203,7 @@ components:
         - avgScore
         - totalScore
         - status
+        - skillBreakdown
         - startedAt
         - updatedAt
 
@@ -1203,6 +1227,8 @@ components:
           type: ["number", "null"]
         scoreImprovement:
           type: ["number", "null"]
+        skillBreakdown:
+          $ref: "#/components/schemas/PracticeSkillBreakdown"
       required:
         - sessionId
         - mode
@@ -1212,6 +1238,7 @@ components:
         - completedAt
         - previousScore
         - scoreImprovement
+        - skillBreakdown
 
     PracticeHistoryResponse:
       type: array

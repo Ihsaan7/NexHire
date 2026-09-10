@@ -52,6 +52,7 @@ export * from './practiceSessionMessage';
 export * from './practiceSessionMessageRole';
 export * from './practiceSessionQuestion';
 export * from './practiceSessionStatus';
+export * from './practiceSkillBreakdown';
 export * from './practiceStartInput';
 export * from './practiceStartResult';
 export * from './profile';

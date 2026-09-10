@@ -21,6 +21,7 @@ export interface IPracticeSessionQuestion {
   userAnswer?: string | null;
   aiFeedback?: string | null;
   score?: number | null;
+  category?: string | null;
 }
 
 export interface IPracticeSession extends Document {
@@ -61,6 +62,7 @@ const PracticeSessionQuestionSchema = new Schema<IPracticeSessionQuestion>(
     userAnswer: { type: String, default: null },
     aiFeedback: { type: String, default: null },
     score: { type: Number, default: null },
+    category: { type: String, maxlength: 100, default: null },
   },
   { _id: false },
 );

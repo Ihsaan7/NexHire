@@ -10,6 +10,7 @@ type StoredQuestion = {
   userAnswer?: string | null;
   aiFeedback?: string | null;
   score?: number | null;
+  category?: string | null;
 };
 
 type StoredSession = {
@@ -251,6 +252,7 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
         return {
           feedback: "Clear example with a measurable result.",
           score: 8,
+          category: "Communication",
           nextQuestion: "How do you prevent duplicate writes?",
           isComplete: false,
         };
@@ -260,6 +262,8 @@ mock.module(moduleUrl("../src/lib/gemini.ts"), {
       return {
         feedback: "Good use of idempotency and transactions.",
         score,
+        category:
+          score >= 8 ? "Technical — Node.js" : "Behavioural",
         isComplete: true,
         summary: "Strong backend fundamentals.",
       };
@@ -338,6 +342,7 @@ test("persists practice progress, completion, and pending answers", async () => 
         userAnswer: null,
         aiFeedback: null,
         score: null,
+        category: null,
       },
     ]);
 
@@ -372,6 +377,7 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(firstSession.status, "incomplete");
     assert.equal(firstSession.totalScore, 8, JSON.stringify(firstSession));
     assert.equal(firstSession.questions[0]?.score, 8);
+    assert.equal(firstSession.questions[0]?.category, "Communication");
     assert.equal(firstSession.questions[1]?.userAnswer, null);
 
     const midSessionReload = await (
@@ -403,6 +409,7 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(firstSession.totalScore, 7);
     assert.equal(firstSession.avgScore, 7);
     assert.equal(firstSession.questions.length, 2);
+    assert.equal(firstSession.questions[1]?.category, "Behavioural");
 
     const completedReload = await (
       await apiRequest(baseUrl, "/practice/session")
@@ -445,6 +452,7 @@ test("persists practice progress, completion, and pending answers", async () => 
     );
     assert.equal(pendingReload.questions[0].aiFeedback, null);
     assert.equal(pendingReload.questions[0].score, null);
+    assert.equal(pendingReload.questions[0].category, null);
 
     const retryAnswerResponse = await apiRequest(
       baseUrl,
@@ -661,6 +669,10 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(improvedHistory.questionCount, 1);
     assert.equal(improvedHistory.previousScore, 5);
     assert.equal(improvedHistory.scoreImprovement, 3);
+    assert.deepEqual(improvedHistory.skillBreakdown, {
+      strong: ["Technical — Node.js"],
+      needsWork: [],
+    });
     const earlierHistoryIndex = history.findIndex(
       (session: { sessionId: string }) =>
         session.sessionId === earlierProgressSessionId,
@@ -681,9 +693,17 @@ test("persists practice progress, completion, and pending answers", async () => 
     assert.equal(historyDetail.questions[0].userAnswer, "system design answer");
     assert.equal(historyDetail.questions[0].score, 8);
     assert.equal(
+      historyDetail.questions[0].category,
+      "Technical — Node.js",
+    );
+    assert.equal(
       historyDetail.questions[0].aiFeedback,
       "Good use of idempotency and transactions.",
     );
+    assert.deepEqual(historyDetail.skillBreakdown, {
+      strong: ["Technical — Node.js"],
+      needsWork: [],
+    });
 
     const abandonedDetailResponse = await apiRequest(
       baseUrl,

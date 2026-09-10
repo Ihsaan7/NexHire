@@ -203,6 +203,8 @@ export interface PracticeMessageResult {
   sessionId: string;
   feedback: string;
   score: number;
+  /** @nullable */
+  category: string | null;
   nextQuestion?: string;
   isComplete: boolean;
   summary?: string;
@@ -234,6 +236,13 @@ export interface PracticeSessionQuestion {
   aiFeedback?: string | null;
   /** @nullable */
   score?: number | null;
+  /** @nullable */
+  category: string | null;
+}
+
+export interface PracticeSkillBreakdown {
+  strong: string[];
+  needsWork: string[];
 }
 
 export type PracticeSessionStatus = typeof PracticeSessionStatus[keyof typeof PracticeSessionStatus];
@@ -262,6 +271,7 @@ export interface PracticeSession {
   avgScore: number;
   totalScore: number;
   status: PracticeSessionStatus;
+  skillBreakdown: PracticeSkillBreakdown;
   startedAt: string;
   updatedAt: string;
 }
@@ -277,6 +287,7 @@ export interface PracticeHistoryItem {
   previousScore: number | null;
   /** @nullable */
   scoreImprovement: number | null;
+  skillBreakdown: PracticeSkillBreakdown;
 }
 
 export type PracticeHistoryResponse = PracticeHistoryItem[];

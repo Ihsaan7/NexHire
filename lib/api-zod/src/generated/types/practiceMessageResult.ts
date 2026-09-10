@@ -10,6 +10,8 @@ export interface PracticeMessageResult {
   sessionId: string;
   feedback: string;
   score: number;
+  /** @nullable */
+  category: string | null;
   nextQuestion?: string;
   isComplete: boolean;
   summary?: string;

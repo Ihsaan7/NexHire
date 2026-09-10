@@ -26,3 +26,9 @@ Practice history includes successfully completed sessions, not Start fresh aband
 **Why:** Abandoned sessions can contain partial scores, and comparing custom, job, and CV sessions by label alone can produce misleading progress notes. Cached history can also omit the session that just completed.
 
 **How to apply:** Keep history/detail queries user-scoped, order deterministically, invalidate history on completion and refetch when opened, and show an improvement note only for a positive score difference.
+
+Generate a skill category during each answer evaluation and commit it in the same lease-bound write as feedback and score. Session skill breakdowns use average score per normalized category: 8+ Strong, below 8 Needs work.
+
+**Why:** Categorizing in a second completion pass creates another failure point and can leave finished sessions partially analyzed. Category averages avoid contradictory labels when one skill appears more than once.
+
+**How to apply:** Keep categories open-ended, trimmed, and nullable for legacy or malformed AI output. Never infer missing legacy categories or classify unanswered/unscored questions.

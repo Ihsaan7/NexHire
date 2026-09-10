@@ -233,6 +233,7 @@ export async function continuePracticeSession(params: {
 }): Promise<{
   feedback: string;
   score: number;
+  category: string | null;
   nextQuestion?: string;
   isComplete: boolean;
   summary?: string;
@@ -268,12 +269,14 @@ ${
     ? `{
   "feedback": "<constructive feedback on this specific answer, 2-3 sentences, mention what was good and what could improve>",
   "score": <answer quality 1-10>,
+  "category": "<concise skill category for this question, such as Communication, Behavioural, or Technical — Node.js>",
   "isComplete": true,
   "summary": "<overall session summary: 2-3 sentences on overall performance, specific strengths shown, top 2-3 improvement tips relevant to the Pakistan job market>"
 }`
     : `{
   "feedback": "<constructive feedback on this specific answer, 1-2 sentences>",
   "score": <answer quality 1-10>,
+  "category": "<concise skill category for this question, such as Communication, Behavioural, or Technical — Node.js>",
   "nextQuestion": "<next interview question — progress naturally, mix behavioral and technical as the session continues>",
   "isComplete": false
 }`
@@ -283,7 +286,79 @@ No extra text outside the JSON.`;
 
   const result = await model.generateContent(prompt);
   const text = result.response.text().trim();
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const parsed = parsePracticeContinuationResponse(text, isLastQuestion);
+  if (parsed.category === null) {
+    console.warn("Gemini practice response did not include a valid category");
+  }
+  return parsed;
+}
+
+export function parsePracticeContinuationResponse(
+  text: string,
+  isLastQuestion: boolean,
+): {
+  feedback: string;
+  score: number;
+  category: string | null;
+  nextQuestion?: string;
+  isComplete: boolean;
+  summary?: string;
+} {
+  const jsonMatch = text.trim().match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Gemini returned non-JSON");
-  return JSON.parse(jsonMatch[0]);
+
+  const value = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  const feedback =
+    typeof value.feedback === "string" ? value.feedback.trim() : "";
+  if (!feedback) {
+    throw new Error("Gemini practice response is missing feedback");
+  }
+  if (
+    typeof value.score !== "number" ||
+    !Number.isFinite(value.score) ||
+    value.score < 1 ||
+    value.score > 10
+  ) {
+    throw new Error("Gemini practice response has an invalid score");
+  }
+  if (
+    typeof value.isComplete !== "boolean" ||
+    value.isComplete !== isLastQuestion
+  ) {
+    throw new Error("Gemini practice response has an invalid completion state");
+  }
+
+  const normalizedCategory =
+    typeof value.category === "string"
+      ? value.category.trim().replace(/\s+/g, " ").slice(0, 100)
+      : "";
+  const category = normalizedCategory || null;
+
+  if (isLastQuestion) {
+    const summary =
+      typeof value.summary === "string" ? value.summary.trim() : "";
+    if (!summary) {
+      throw new Error("Gemini final practice response is missing a summary");
+    }
+    return {
+      feedback,
+      score: value.score,
+      category,
+      isComplete: true,
+      summary,
+    };
+  }
+
+  const nextQuestion =
+    typeof value.nextQuestion === "string" ? value.nextQuestion.trim() : "";
+  if (!nextQuestion) {
+    throw new Error("Gemini practice response is missing the next question");
+  }
+  return {
+    feedback,
+    score: value.score,
+    category,
+    nextQuestion,
+    isComplete: false,
+  };
 }

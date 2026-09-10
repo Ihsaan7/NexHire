@@ -14,4 +14,6 @@ export interface PracticeSessionQuestion {
   aiFeedback?: string | null;
   /** @nullable */
   score?: number | null;
+  /** @nullable */
+  category: string | null;
 }

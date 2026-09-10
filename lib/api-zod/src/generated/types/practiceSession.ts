@@ -9,6 +9,7 @@ import type { PracticeMode } from './practiceMode';
 import type { PracticeSessionMessage } from './practiceSessionMessage';
 import type { PracticeSessionQuestion } from './practiceSessionQuestion';
 import type { PracticeSessionStatus } from './practiceSessionStatus';
+import type { PracticeSkillBreakdown } from './practiceSkillBreakdown';
 
 export interface PracticeSession {
   sessionId: string;
@@ -28,6 +29,7 @@ export interface PracticeSession {
   avgScore: number;
   totalScore: number;
   status: PracticeSessionStatus;
+  skillBreakdown: PracticeSkillBreakdown;
   startedAt: string;
   updatedAt: string;
 }

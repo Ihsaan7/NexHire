@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PracticeMode } from './practiceMode';
+import type { PracticeSkillBreakdown } from './practiceSkillBreakdown';
 
 export interface PracticeHistoryItem {
   sessionId: string;
@@ -18,4 +19,5 @@ export interface PracticeHistoryItem {
   previousScore: number | null;
   /** @nullable */
   scoreImprovement: number | null;
+  skillBreakdown: PracticeSkillBreakdown;
 }

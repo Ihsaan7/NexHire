@@ -516,6 +516,28 @@ export default function Practice() {
                     </p>
                   </div>
                 </div>
+                <div className="border-b border-border p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground mb-1">
+                      Strong
+                    </p>
+                    <p className="text-sm text-green-400">
+                      {historySession.skillBreakdown.strong.length
+                        ? historySession.skillBreakdown.strong.join(" · ")
+                        : "None recorded"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground mb-1">
+                      Needs work
+                    </p>
+                    <p className="text-sm text-yellow-400">
+                      {historySession.skillBreakdown.needsWork.length
+                        ? historySession.skillBreakdown.needsWork.join(" · ")
+                        : "None recorded"}
+                    </p>
+                  </div>
+                </div>
                 <div className="p-5 space-y-5">
                   {historySession.questions
                     .filter((question) => question.userAnswer)
@@ -526,6 +548,9 @@ export default function Practice() {
                       >
                         <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
                           Question {index + 1}
+                          {question.category
+                            ? ` · ${question.category}`
+                            : " · Not categorized"}
                         </p>
                         <p className="font-serif text-lg mb-3">
                           {question.question}
