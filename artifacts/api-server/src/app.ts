@@ -1,6 +1,6 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
 import multer from "multer";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
@@ -8,13 +8,13 @@ import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
   getClerkProxyHost,
-} from "./middlewares/clerkProxyMiddleware";
-import router from "./routes";
-import { logger } from "./lib/logger";
-import { isAllowedCorsOrigin } from "./lib/env";
-import { isMongoReady } from "./lib/mongodb";
-import { isDatabaseTimeoutError } from "./lib/databaseErrors";
-import { AiRateLimitError, AiTimeoutError } from "./lib/aiErrors";
+} from "./middlewares/clerkProxyMiddleware.js";
+import router from "./routes/index.js";
+import { logger } from "./lib/logger.js";
+import { isAllowedCorsOrigin } from "./lib/env.js";
+import { isMongoReady } from "./lib/mongodb.js";
+import { isDatabaseTimeoutError } from "./lib/databaseErrors.js";
+import { AiRateLimitError, AiTimeoutError } from "./lib/aiErrors.js";
 
 const app: Express = express();
 
