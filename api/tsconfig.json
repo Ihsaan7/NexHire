@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "./index.ts",
+    "../artifacts/api-server/src/**/*.ts"
+  ]
+}
