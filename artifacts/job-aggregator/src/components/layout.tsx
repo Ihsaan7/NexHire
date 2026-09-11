@@ -150,7 +150,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <div className={`flex-1 overflow-y-auto ${isMobile ? 'pt-14 pb-16' : ''}`}>
+        <div className={`scrollbar-hidden flex-1 overflow-y-auto ${isMobile ? 'pt-14 pb-16' : ''}`}>
           <motion.div
             key={location}
             initial={{ opacity: 0, y: 10 }}
