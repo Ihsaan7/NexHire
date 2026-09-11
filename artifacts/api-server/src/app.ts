@@ -65,7 +65,7 @@ app.use(
 
 app.use(
   "/api",
-  (req, res, next) => {
+  (req: Request, res: Response, next: NextFunction) => {
     if (req.path === "/health" || req.path === "/healthz") {
       next();
       return;
