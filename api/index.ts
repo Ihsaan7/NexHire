@@ -3,6 +3,8 @@ import app from "../artifacts/api-server/src/app";
 import { validateServerEnvironment } from "../artifacts/api-server/src/lib/env";
 import { connectMongo } from "../artifacts/api-server/src/lib/mongodb";
 
+type NodeHandler = (request: IncomingMessage, response: ServerResponse) => void;
+
 let startup: Promise<void> | undefined;
 
 function prepareApi(): Promise<void> {
@@ -19,5 +21,5 @@ export default async function handler(
   response: ServerResponse,
 ): Promise<void> {
   await prepareApi();
-  app(request, response);
+  (app as unknown as NodeHandler)(request, response);
 }
