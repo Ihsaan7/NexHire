@@ -196,11 +196,9 @@ The API uses Vercel's background-work support so a successful `202` response can
 
 Do not put `CRON_SECRET` in a URL or expose it in frontend code.
 
-## Node.js 20 deadline
+## Node.js runtime
 
-The project is pinned to Node.js 20 because that was requested. Vercel states that Node.js 20 will be disabled on **October 1, 2026**.
-
-Change the root `package.json` engine to Node.js 22 or 24 and re-run all tests before deploying after that date.
+The project uses Node.js 24 to match Vercel's current build image. Keep the Vercel project's Node.js version aligned with the `engines.node` value in the root `package.json`.
 
 ## Official references
 
