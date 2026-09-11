@@ -3,7 +3,7 @@
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/job-aggregator run build",
-  "outputDirectory": "public",
+  "outputDirectory": "artifacts/job-aggregator/dist",
   "functions": {
     "api/index.ts": {
       "maxDuration": 300
