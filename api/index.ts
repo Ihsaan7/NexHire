@@ -19,5 +19,5 @@ export default async function handler(
   response: ServerResponse,
 ): Promise<void> {
   await prepareApi();
-  app(request, response);
+  app.handle(request, response);
 }
