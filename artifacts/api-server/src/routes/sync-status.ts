@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { GetSyncStatusResponse } from "@workspace/api-zod";
-import { getSyncStatuses } from "../lib/syncStatus";
-import { requireAuth } from "./auth";
+import { getSyncStatuses } from "../lib/syncStatus.js";
+import { requireAuth } from "./auth.js";
 
 const router = Router();
 

@@ -1,6 +1,6 @@
-import { connectMongo } from "./mongodb";
-import { AiQuota } from "../models/AiQuota";
-import { AiRateLimitError } from "./aiErrors";
+import { connectMongo } from "./mongodb.js";
+import { AiQuota } from "../models/AiQuota.js";
+import { AiRateLimitError } from "./aiErrors.js";
 
 const LIMIT = 30;
 const HOUR = 60 * 60 * 1000;

@@ -1,13 +1,13 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
-import profileRouter from "./profile";
-import jobsRouter from "./jobs";
-import savedJobsRouter from "./savedJobs";
-import cronRouter from "./cron";
-import gigsRouter from "./gigs";
-import syncGigsRouter from "./sync-gigs";
-import practiceRouter from "./practice";
-import syncStatusRouter from "./sync-status";
+import healthRouter from "./health.js";
+import profileRouter from "./profile.js";
+import jobsRouter from "./jobs.js";
+import savedJobsRouter from "./savedJobs.js";
+import cronRouter from "./cron.js";
+import gigsRouter from "./gigs.js";
+import syncGigsRouter from "./sync-gigs.js";
+import practiceRouter from "./practice.js";
+import syncStatusRouter from "./sync-status.js";
 
 const router: IRouter = Router();
 

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { connectMongo } from "./mongodb";
-import { SyncStatus as SyncStatusModel } from "../models/SyncStatus";
+import { connectMongo } from "./mongodb.js";
+import { SyncStatus as SyncStatusModel } from "../models/SyncStatus.js";
 
 export type SyncKind = "jobs" | "gigs";
 export type SyncState = "idle" | "running" | "succeeded" | "failed";

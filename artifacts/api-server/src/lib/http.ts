@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import { AiRateLimitError, AiTimeoutError } from "./aiErrors";
-import { isDatabaseTimeoutError } from "./databaseErrors";
+import { AiRateLimitError, AiTimeoutError } from "./aiErrors.js";
+import { isDatabaseTimeoutError } from "./databaseErrors.js";
 
 type ValidationIssue = {
   path: Array<string | number>;

@@ -1,15 +1,15 @@
 import { Router } from "express";
-import { requireAuth } from "./auth";
-import { connectMongo } from "../lib/mongodb";
-import { Gig } from "../models/Gig";
-import { getUsdToPkr, calcValueScore } from "../lib/exchangeRate";
-import { logger } from "../lib/logger";
-import { AiRateLimitError } from "../lib/aiErrors";
-import { runGigSync } from "./sync-gigs";
+import { requireAuth } from "./auth.js";
+import { connectMongo } from "../lib/mongodb.js";
+import { Gig } from "../models/Gig.js";
+import { getUsdToPkr, calcValueScore } from "../lib/exchangeRate.js";
+import { logger } from "../lib/logger.js";
+import { AiRateLimitError } from "../lib/aiErrors.js";
+import { runGigSync } from "./sync-gigs.js";
 import { ListGigsQueryParams, ListGigsResponse } from "@workspace/api-zod";
-import { sendInternalServerError, sendValidationError } from "../lib/http";
-import { beginSync, completeSync, failSync } from "../lib/syncStatus";
-import { registerBackgroundTask } from "../lib/backgroundTask";
+import { sendInternalServerError, sendValidationError } from "../lib/http.js";
+import { beginSync, completeSync, failSync } from "../lib/syncStatus.js";
+import { registerBackgroundTask } from "../lib/backgroundTask.js";
 
 const router = Router();
 

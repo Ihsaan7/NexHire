@@ -1,14 +1,14 @@
 import { Router } from "express";
 import multer from "multer";
-import { requireAuth } from "./auth";
-import { connectMongo } from "../lib/mongodb";
-import { Profile } from "../models/Profile";
-import { CvAudit } from "../models/CvAudit";
-import { CvRefinement } from "../models/CvRefinement";
-import { CvVersion } from "../models/CvVersion";
-import { MatchAnalysis } from "../models/MatchAnalysis";
-import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini";
-import { logger } from "../lib/logger";
+import { requireAuth } from "./auth.js";
+import { connectMongo } from "../lib/mongodb.js";
+import { Profile } from "../models/Profile.js";
+import { CvAudit } from "../models/CvAudit.js";
+import { CvRefinement } from "../models/CvRefinement.js";
+import { CvVersion } from "../models/CvVersion.js";
+import { MatchAnalysis } from "../models/MatchAnalysis.js";
+import { generateEmbedding, generateCvSuggestions, auditCvPakistan, refineCvForJob } from "../lib/gemini.js";
+import { logger } from "../lib/logger.js";
 import {
   AuditCvResponse,
   DeleteCvDataResponse,
@@ -24,7 +24,7 @@ import {
   UpdateProfileResponse,
   UploadCvResponse,
 } from "@workspace/api-zod";
-import { sendInternalServerError, sendValidationError } from "../lib/http";
+import { sendInternalServerError, sendValidationError } from "../lib/http.js";
 import type { ClientSession, Connection } from "mongoose";
 
 // Use memory storage — never write CV to disk

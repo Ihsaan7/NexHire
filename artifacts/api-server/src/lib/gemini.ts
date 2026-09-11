@@ -1,14 +1,14 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getAiUserId } from "./aiContext";
-import { consumeAiQuota } from "./aiQuota";
-import { AiRateLimitError, AiTimeoutError } from "./aiErrors";
-import { logger } from "./logger";
+import { getAiUserId } from "./aiContext.js";
+import { consumeAiQuota } from "./aiQuota.js";
+import { AiRateLimitError, AiTimeoutError } from "./aiErrors.js";
+import { logger } from "./logger.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const CHAT_MODEL = "gemini-2.5-flash-lite";
 const AI_TIMEOUT_MS = 30_000;
-export { AiRateLimitError, AiTimeoutError } from "./aiErrors";
+export { AiRateLimitError, AiTimeoutError } from "./aiErrors.js";
 
 export async function callGemini<T>(
   call: () => Promise<T>,

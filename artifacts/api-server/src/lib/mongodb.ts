@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { logger } from "./logger";
+import { logger } from "./logger.js";
 
 export const DB_TIMEOUT_MS = 10_000;
 mongoose.set("maxTimeMS", DB_TIMEOUT_MS);
@@ -23,12 +23,13 @@ export async function connectMongo(): Promise<mongoose.Connection> {
 
   if (!cached) {
     logger.info("Connecting to MongoDB...");
-    await mongoose.connect(uri, {
+    const connectionOptions = {
       bufferCommands: false,
       serverSelectionTimeoutMS: DB_TIMEOUT_MS,
       connectTimeoutMS: DB_TIMEOUT_MS,
       socketTimeoutMS: DB_TIMEOUT_MS,
-    });
+    } as mongoose.ConnectOptions & { serverSelectionTimeoutMS: number };
+    await mongoose.connect(uri, connectionOptions);
     cached = mongoose.connection;
     global.__mongooseConn = cached;
     logger.info("MongoDB connected");

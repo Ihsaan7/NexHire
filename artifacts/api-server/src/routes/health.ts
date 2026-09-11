@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
-import { isMongoReady } from "../lib/mongodb";
-import { getSyncStatuses } from "../lib/syncStatus";
+import { isMongoReady } from "../lib/mongodb.js";
+import { getSyncStatuses } from "../lib/syncStatus.js";
 
 const router: IRouter = Router();
 

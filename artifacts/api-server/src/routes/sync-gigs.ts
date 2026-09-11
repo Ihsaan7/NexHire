@@ -1,13 +1,13 @@
 import { Router } from "express";
 import * as cheerio from "cheerio";
-import { connectMongo } from "../lib/mongodb";
-import { Gig } from "../models/Gig";
-import { logger } from "../lib/logger";
-import { beginSync, completeSync, failSync } from "../lib/syncStatus";
-import { AiTimeoutError } from "../lib/aiErrors";
-import { AiRateLimitError } from "../lib/aiErrors";
-import { callGemini } from "../lib/gemini";
-import { registerBackgroundTask } from "../lib/backgroundTask";
+import { connectMongo } from "../lib/mongodb.js";
+import { Gig } from "../models/Gig.js";
+import { logger } from "../lib/logger.js";
+import { beginSync, completeSync, failSync } from "../lib/syncStatus.js";
+import { AiTimeoutError } from "../lib/aiErrors.js";
+import { AiRateLimitError } from "../lib/aiErrors.js";
+import { callGemini } from "../lib/gemini.js";
+import { registerBackgroundTask } from "../lib/backgroundTask.js";
 
 const router = Router();
 

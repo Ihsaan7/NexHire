@@ -1,9 +1,9 @@
 import { Router } from "express";
 import mongoose from "mongoose";
-import { requireAuth } from "./auth";
-import { connectMongo } from "../lib/mongodb";
-import { SavedJob } from "../models/SavedJob";
-import { Job } from "../models/Job";
+import { requireAuth } from "./auth.js";
+import { connectMongo } from "../lib/mongodb.js";
+import { SavedJob } from "../models/SavedJob.js";
+import { Job } from "../models/Job.js";
 import {
   DeleteSavedJobParams,
   ListSavedJobsResponse,
@@ -12,7 +12,7 @@ import {
   UpdateSavedJobParams,
   UpdateSavedJobResponse,
 } from "@workspace/api-zod";
-import { sendInternalServerError, sendValidationError } from "../lib/http";
+import { sendInternalServerError, sendValidationError } from "../lib/http.js";
 
 const router = Router();
 

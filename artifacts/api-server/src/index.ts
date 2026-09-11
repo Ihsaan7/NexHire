@@ -1,7 +1,7 @@
-import app from "./app";
-import { logger } from "./lib/logger";
-import { validateServerEnvironment } from "./lib/env";
-import { connectMongo } from "./lib/mongodb";
+import app from "./app.js";
+import { logger } from "./lib/logger.js";
+import { validateServerEnvironment } from "./lib/env.js";
+import { connectMongo } from "./lib/mongodb.js";
 
 const rawPort = process.env["PORT"];
 

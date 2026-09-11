@@ -1,11 +1,11 @@
 import { Router } from "express";
 import * as cheerio from "cheerio";
-import { connectMongo } from "../lib/mongodb";
-import { Job } from "../models/Job";
-import { generateEmbedding } from "../lib/gemini";
-import { logger } from "../lib/logger";
-import { beginSync, completeSync, failSync } from "../lib/syncStatus";
-import { registerBackgroundTask } from "../lib/backgroundTask";
+import { connectMongo } from "../lib/mongodb.js";
+import { Job } from "../models/Job.js";
+import { generateEmbedding } from "../lib/gemini.js";
+import { logger } from "../lib/logger.js";
+import { beginSync, completeSync, failSync } from "../lib/syncStatus.js";
+import { registerBackgroundTask } from "../lib/backgroundTask.js";
 
 const router = Router();
 

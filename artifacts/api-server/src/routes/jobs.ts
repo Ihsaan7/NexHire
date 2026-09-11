@@ -1,13 +1,13 @@
 import { Router } from "express";
 import mongoose from "mongoose";
-import { requireAuth } from "./auth";
-import { connectMongo } from "../lib/mongodb";
-import { Job } from "../models/Job";
-import { Profile } from "../models/Profile";
-import { MatchAnalysis } from "../models/MatchAnalysis";
-import { analyzeJobMatch, EMBEDDING_DIMENSIONS } from "../lib/gemini";
-import { logger } from "../lib/logger";
-import { isDatabaseTimeoutError } from "../lib/databaseErrors";
+import { requireAuth } from "./auth.js";
+import { connectMongo } from "../lib/mongodb.js";
+import { Job } from "../models/Job.js";
+import { Profile } from "../models/Profile.js";
+import { MatchAnalysis } from "../models/MatchAnalysis.js";
+import { analyzeJobMatch, EMBEDDING_DIMENSIONS } from "../lib/gemini.js";
+import { logger } from "../lib/logger.js";
+import { isDatabaseTimeoutError } from "../lib/databaseErrors.js";
 import {
   AnalyzeJobMatchParams,
   AnalyzeJobMatchResponse,
@@ -19,7 +19,7 @@ import {
   ListJobsQueryParams,
   ListJobsResponse,
 } from "@workspace/api-zod";
-import { sendInternalServerError, sendValidationError } from "../lib/http";
+import { sendInternalServerError, sendValidationError } from "../lib/http.js";
 
 const router = Router();
 

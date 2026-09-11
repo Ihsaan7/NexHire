@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
-import { runWithAiUser } from "../lib/aiContext";
+import { runWithAiUser } from "../lib/aiContext.js";
 
 export const requireAuth = (
   req: Request,

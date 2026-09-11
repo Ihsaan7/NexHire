@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { isValidObjectId } from "mongoose";
-import { requireAuth } from "./auth";
-import { connectMongo } from "../lib/mongodb";
-import { Profile } from "../models/Profile";
-import { PracticeSession } from "../models/PracticeSession";
-import { startPracticeSession, continuePracticeSession } from "../lib/gemini";
+import { requireAuth } from "./auth.js";
+import { connectMongo } from "../lib/mongodb.js";
+import { Profile } from "../models/Profile.js";
+import { PracticeSession } from "../models/PracticeSession.js";
+import { startPracticeSession, continuePracticeSession } from "../lib/gemini.js";
 import {
   GetLatestPracticeSessionResponse,
   GetPracticeHistorySessionResponse,
@@ -16,7 +16,7 @@ import {
   StartPracticeSessionBody,
   StartPracticeSessionResponse,
 } from "@workspace/api-zod";
-import { sendInternalServerError, sendValidationError } from "../lib/http";
+import { sendInternalServerError, sendValidationError } from "../lib/http.js";
 
 const router = Router();
 
