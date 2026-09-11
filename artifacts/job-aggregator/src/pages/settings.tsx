@@ -51,7 +51,7 @@ export default function Settings() {
       }
     }, {
       onSuccess: () => {
-        toast({ title: "Preferences saved", description: "Your terminal has been updated." });
+        toast({ title: "Preferences saved", description: "Your NexHire preferences have been updated." });
       },
       onError: (error) => {
         toast({
@@ -70,7 +70,7 @@ export default function Settings() {
   return (
     <div className="p-6 md:p-10 max-w-3xl mx-auto h-full overflow-y-auto">
       <header className="mb-10">
-        <h1 className="text-4xl md:text-5xl font-serif tracking-tight mb-2">Terminal Settings</h1>
+        <h1 className="text-4xl md:text-5xl font-serif tracking-tight mb-2">NexHire Settings</h1>
         <p className="text-muted-foreground font-mono uppercase text-xs tracking-widest">
           Configure Match Engine
         </p>

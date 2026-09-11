@@ -1,9 +1,9 @@
 ---
 name: PK Jobs stack
-description: Tech stack decisions for the Pakistani job aggregator — what is used and why
+description: Tech stack decisions for NexHire — what is used and why
 ---
 
-# Pakistani Job Aggregator — Stack Decisions
+# NexHire — Stack Decisions
 
 ## Database: MongoDB via Mongoose (NOT Drizzle/Postgres)
 The workspace monorepo has a `lib/db` Drizzle/Postgres package, but this project uses **MongoDB Atlas via Mongoose** for all job data. Do not import from `lib/db`.

@@ -52,7 +52,7 @@ export default function Dashboard() {
       <header>
         <h1 className="text-4xl md:text-5xl font-serif tracking-tight mb-2">Dashboard</h1>
         <p className="text-muted-foreground font-mono uppercase text-xs tracking-widest">
-          Terminal Status: Online • {stats?.total || 0} Open Positions
+          NexHire Status: Online • {stats?.total || 0} Open Positions
         </p>
       </header>
 

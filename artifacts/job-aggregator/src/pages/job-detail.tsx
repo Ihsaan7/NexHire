@@ -97,7 +97,7 @@ export default function JobDetail() {
         <div className="max-w-3xl mx-auto">
           <Link href="/jobs">
             <Button variant="ghost" className="mb-6 font-mono text-xs uppercase tracking-wider pl-0 hover:bg-transparent hover:text-primary">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Terminal
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to NexHire
             </Button>
           </Link>
 

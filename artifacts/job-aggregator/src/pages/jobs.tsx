@@ -422,7 +422,7 @@ export default function Jobs() {
             </h1>
             <p className="text-muted-foreground font-mono text-xs uppercase mt-1">
               {resultsLoading
-                ? "Scanning terminal..."
+                ? "Scanning NexHire..."
                 : `${resultCount} results`}
             </p>
           </div>

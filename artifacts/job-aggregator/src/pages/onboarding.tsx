@@ -147,9 +147,9 @@ export default function Onboarding() {
       }
 
       await refetchProfile();
-      toast({ 
-        title: "Terminal Initialised", 
-        description: "Your preferences have been saved." 
+      toast({
+        title: "NexHire Initialised",
+        description: "Your preferences have been saved."
       });
       setLocation("/dashboard");
     } catch (error) {
@@ -206,7 +206,7 @@ export default function Onboarding() {
       
       <div className="w-full max-w-2xl z-10 bg-card/40 border border-border p-8 md:p-12 backdrop-blur-sm my-8">
         <header className="mb-10 text-center">
-          <h1 className="text-3xl md:text-4xl font-serif tracking-tight mb-2">Initialize Terminal</h1>
+          <h1 className="text-3xl md:text-4xl font-serif tracking-tight mb-2">Initialize NexHire</h1>
           <p className="text-muted-foreground font-mono uppercase text-xs tracking-widest">
             Configure your career parameters
           </p>
@@ -322,7 +322,7 @@ export default function Onboarding() {
             >
               {isSubmitting ? "Initialising..." : (
                 <span className="flex items-center gap-2">
-                  Enter Terminal <ChevronRight className="w-4 h-4" />
+                  Enter NexHire <ChevronRight className="w-4 h-4" />
                 </span>
               )}
             </Button>

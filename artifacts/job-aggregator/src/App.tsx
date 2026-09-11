@@ -158,12 +158,12 @@ function Home() {
       <div className="grid-overlay" />
       <div className="noise-overlay" />
       <div className="z-10 text-center max-w-3xl px-6">
-        <img src={`${basePath}/logo.svg`} alt="PK Logo" className="h-16 w-16 mx-auto mb-8" />
+        <img src={`${basePath}/logo.svg`} alt="NexHire Logo" className="h-16 w-16 mx-auto mb-8" />
         <h1 className="text-5xl md:text-7xl font-serif text-foreground mb-6">
           Intelligence for<br/>your next move.
         </h1>
         <p className="text-xl font-mono text-muted-foreground mb-10 max-w-xl mx-auto">
-          A private terminal for Pakistani professionals. Sharp, precise, information-dense.
+          NexHire for Pakistani professionals. Sharp, precise, information-dense.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a href={`${basePath}/sign-in`} className="bg-primary text-primary-foreground px-8 py-3 uppercase font-mono text-sm tracking-wider hover:bg-primary/90 transition-colors border border-primary">
@@ -185,7 +185,7 @@ function HomeRedirect() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          Loading terminal…
+          Loading NexHire…
         </p>
       </div>
     );

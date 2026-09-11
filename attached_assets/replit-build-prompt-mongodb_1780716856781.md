@@ -1,4 +1,4 @@
-# Replit Build Prompt — Pakistani Job Aggregator (MongoDB Stack)
+# Replit Build Prompt — NexHire (MongoDB Stack)
 
 Copy everything below this line into Replit's AI Agent and let it scaffold.
 
@@ -6,7 +6,7 @@ Copy everything below this line into Replit's AI Agent and let it scaffold.
 
 ## PROJECT BRIEF
 
-Build a personal Pakistani job aggregator web app. The app pulls live job listings (government and private), matches them against the user's uploaded CV using AI, and shows step-by-step manual application instructions. **No auto-apply.** Single user for now (me), but built so I can add friends later via login.
+Build NexHire, a personal career platform for Pakistani professionals. The app pulls live job listings (government and private), matches them against the user's uploaded CV using AI, and shows step-by-step manual application instructions. **No auto-apply.** Single user for now (me), but built so I can add friends later via login.
 
 **Hard rules:**
 - Everything must be free — no paid APIs, no paid tiers

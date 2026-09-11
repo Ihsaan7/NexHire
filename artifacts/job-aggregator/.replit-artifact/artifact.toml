@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Pakistani Job Aggregator"
+title = "NexHire"
 version = "1.0.0"
 id = "artifacts/job-aggregator"
 router = "path"

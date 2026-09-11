@@ -1,4 +1,4 @@
-# Deploy to Vercel
+# NexHire Deployment Guide
 
 This repository deploys to **one Vercel project**:
 

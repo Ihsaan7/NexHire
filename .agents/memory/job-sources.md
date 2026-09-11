@@ -1,6 +1,6 @@
 ---
 name: Job data sources
-description: What job APIs work for Pakistani job aggregator and which don't
+description: What job APIs work for NexHire and which don't
 ---
 
 **Adzuna:** Does NOT support Pakistan (`pk`). Returns `UNSUPPORTED_COUNTRY`.

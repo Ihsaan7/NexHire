@@ -100,8 +100,8 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="h-16 flex items-center px-6 border-b border-border">
             <Link href="/dashboard">
               <div className="flex items-center gap-3 cursor-pointer">
-                <img src={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/logo.svg`} alt="PK Logo" className="w-8 h-8" />
-                <span className="font-serif font-bold text-xl tracking-tight">TERMINAL</span>
+                <img src={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/logo.svg`} alt="NexHire Logo" className="w-8 h-8" />
+                <span className="font-serif font-bold text-xl tracking-tight">NexHire</span>
               </div>
             </Link>
           </div>
@@ -114,7 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <>
           <header className="h-14 border-b border-border bg-background/80 backdrop-blur-md flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-30">
             <Link href="/dashboard">
-              <img src={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/logo.svg`} alt="PK Logo" className="w-8 h-8" />
+              <img src={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/logo.svg`} alt="NexHire Logo" className="w-8 h-8" />
             </Link>
             <Sheet>
               <SheetTrigger asChild>
