@@ -1,4 +1,5 @@
-import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import express from "express";
+import type { NextFunction, Request, Response } from "express-serve-static-core";
 import cors from "cors";
 import { pinoHttp } from "pino-http";
 import multer from "multer";
@@ -16,7 +17,7 @@ import { isMongoReady } from "./lib/mongodb.js";
 import { isDatabaseTimeoutError } from "./lib/databaseErrors.js";
 import { AiRateLimitError, AiTimeoutError } from "./lib/aiErrors.js";
 
-const app: Express = express();
+const app = express();
 
 app.use(
   pinoHttp({
